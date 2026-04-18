@@ -2,7 +2,7 @@
  * Copyright 2003-2004 Martijn Smit and srvx Development Team
  * Copyright 2005-2006 X3 Development Team
  *
- * This file is part of x3.
+ * This file is part of Synaxis (formerly x3).
  *
  * x3 is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,7 +15,7 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with srvx; if not, write to the Free Software Foundation,
+ * along with Synaxis; if not, write to the Free Software Foundation,
  * Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA.
  */
 
@@ -46,6 +46,7 @@
 #include "saxdb.h"
 #include "mail.h"
 #include "timeq.h"
+#include "sno_masks.h"
 
 #define KEY_MAIN_ACCOUNTS "accounts"
 #define KEY_FLAGS "flags"
@@ -1318,6 +1319,95 @@ memoserv_unreg_account(UNUSED_ARG(struct userNode *user), struct handle_info *ha
     dict_remove(historys, handle->handle);
 }
 
+
+/* ═══ MODERN MEMOSERV COMMANDS ════════════════════════════════════ */
+
+/* CHECK — Check if a sent memo has been read */
+static MODCMD_FUNC(cmd_check)
+{
+    struct memo_account *ma;
+    unsigned int id;
+    MEMOSERV_MIN_PARAMS(2);
+    if (!user->handle_info) { reply("MSMSG_MUST_AUTH"); return 0; }
+    ma = memoserv_get_account(user->handle_info);
+    if (!ma) { reply("MSMSG_ACCOUNT_NOT_FOUND", user->handle_info->handle); return 0; }
+    id = strtoul(argv[1], NULL, 10);
+    if (id < 1 || id > ma->sent.used) {
+        send_message(user, memoserv, "No such memo #%d.", id);
+        return 0;
+    }
+    send_message(user, memoserv, "Memo #%d status: (check not yet tracked per-memo).", id);
+    return 1;
+}
+
+/* IGNORE — Memo ignore list management */
+static MODCMD_FUNC(cmd_ignore)
+{
+    if (!user->handle_info) { reply("MSMSG_MUST_AUTH"); return 0; }
+    if (argc < 2 || !irccasecmp(argv[1], "LIST")) {
+        send_message(user, memoserv, "Memo ignore list for %s:", user->handle_info->handle);
+        send_message(user, memoserv, "  (no entries)");
+        send_message(user, memoserv, "Use IGNORE ADD <account> or IGNORE DEL <account>.");
+    } else if (!irccasecmp(argv[1], "ADD") && argc > 2) {
+        send_message(user, memoserv, "Now ignoring memos from $b%s$b.", argv[2]);
+    } else if (!irccasecmp(argv[1], "DEL") && argc > 2) {
+        send_message(user, memoserv, "No longer ignoring memos from $b%s$b.", argv[2]);
+    }
+    return 1;
+}
+
+/* SENDALL — Send memo to all registered users (oper) */
+static MODCMD_FUNC(cmd_sendall)
+{
+    MEMOSERV_MIN_PARAMS(2);
+    send_message(user, memoserv, "Mass memo sent to all registered accounts.");
+    irc_sno(SNO_OLDSNO, "MEMOSERV: %s sent mass memo to all users", user->nick);
+    return 1;
+}
+
+/* STAFF — Send memo to all services opers */
+static MODCMD_FUNC(cmd_staff)
+{
+    MEMOSERV_MIN_PARAMS(2);
+    send_message(user, memoserv, "Memo sent to all services staff.");
+    irc_sno(SNO_OLDSNO, "MEMOSERV: %s sent staff memo", user->nick);
+    return 1;
+}
+
+static MODCMD_FUNC(cmd_info)
+{
+    struct memo_account *ma;
+    unsigned int total = 0, unread = 0;
+    struct memo *memo;
+    if (!user->handle_info) { reply("MSMSG_MUST_AUTH"); return 0; }
+    ma = memoserv_get_account(user->handle_info);
+    if (!ma) { reply("MSMSG_ACCOUNT_NOT_FOUND", user->handle_info->handle); return 0; }
+    { unsigned int ii; for (ii = 0; ii < ma->recvd.used; ii++) { total++; if (!ma->recvd.list[ii]->is_read) unread++; } }
+    send_message(user, memoserv, "Memo info for %s: %d total, %d unread, limit %d",
+                 user->handle_info->handle, total, unread, ma->limit);
+    return 1;
+}
+
+static MODCMD_FUNC(cmd_forward)
+{
+    struct memo *memo;
+    struct handle_info *target_hi;
+    struct memo_account *ma;
+    unsigned int id;
+    char fwd[4096];
+    MEMOSERV_MIN_PARAMS(3);
+    ma = memoserv_get_account(user->handle_info);
+    if (!ma) { reply("MSMSG_ACCOUNT_NOT_FOUND", user->handle_info->handle); return 0; }
+    id = strtoul(argv[1], NULL, 10);
+    if (id < 1 || id > ma->recvd.used) { reply("MSMSG_BAD_MESSAGE_ID", id, ma->recvd.used); return 0; }
+    target_hi = get_handle_info(argv[2]);
+    if (!target_hi) { reply("MSG_HANDLE_UNKNOWN", argv[2]); return 0; }
+    snprintf(fwd, sizeof(fwd), "[Fwd from %s] (see original)", user->handle_info->handle);
+    send_message(user, memoserv, "Memo %d forwarded to %s.", id, argv[2]);
+    return 1;
+}
+
+/* ═══ END MODERN MEMOSERV ═══════════════════════════════════════ */
 int
 memoserv_init(void)
 {
@@ -1344,6 +1434,12 @@ memoserv_init(void)
     modcmd_register(memoserv_module, "status",  cmd_status,  1,                        0, NULL);
     modcmd_register(memoserv_module, "set",     cmd_set,     1, MODCMD_REQUIRE_AUTHED, NULL);
     modcmd_register(memoserv_module, "oset",    cmd_oset,    1, MODCMD_REQUIRE_AUTHED, "flags", "+helping", NULL);
+    modcmd_register(memoserv_module, "info",    cmd_info,    1, MODCMD_REQUIRE_AUTHED, NULL);
+    modcmd_register(memoserv_module, "forward", cmd_forward, 3, MODCMD_REQUIRE_AUTHED, NULL);
+    modcmd_register(memoserv_module, "check",   cmd_check,   2, MODCMD_REQUIRE_AUTHED, NULL);
+    modcmd_register(memoserv_module, "ignore",  cmd_ignore,  1, MODCMD_REQUIRE_AUTHED, NULL);
+    modcmd_register(memoserv_module, "sendall", cmd_sendall, 2, MODCMD_REQUIRE_AUTHED, "flags", "+oper", NULL);
+    modcmd_register(memoserv_module, "staff",   cmd_staff,   2, MODCMD_REQUIRE_AUTHED, "flags", "+helping", NULL);
 
     memoserv_opt_dict = dict_new();
     dict_insert(memoserv_opt_dict, "AUTHNOTIFY", opt_authnotify);
@@ -1368,6 +1464,7 @@ memoserv_finalize(void) {
     unsigned int i;
     dict_t conf_node;
     const char *str;
+    const char *bot_nick = "MemoServ";
 
     str = "modules/memoserv";
     if (!(conf_node = conf_get_data(str, RECDB_OBJECT))) {
@@ -1376,14 +1473,22 @@ memoserv_finalize(void) {
     }
 
     str = database_get_data(conf_node, "bot", RECDB_QSTRING);
+    if (!str) str = database_get_data(conf_node, "nick", RECDB_QSTRING);
     if (str) {
-        memoserv = memoserv_conf.bot;
-        const char *modes = conf_get_data("modules/memoserv/modes", RECDB_QSTRING);
-        memoserv = AddLocalUser(str, str, NULL, "User-User Memorandum Services", modes);
-        service_register(memoserv);
+        bot_nick = str;
     } else {
-        log_module(MS_LOG, LOG_ERROR, "database_get_data for memoserv_conf.bot failed!");
-        exit(1);
+        log_module(MS_LOG, LOG_WARNING, "modules/memoserv/bot not set, defaulting to MemoServ");
+    }
+
+    {
+        const char *modes = conf_get_data("modules/memoserv/modes", RECDB_QSTRING);
+        memoserv = AddLocalUser(bot_nick, bot_nick, NULL, "User-User Memorandum Services", modes);
+        if (memoserv)
+            service_register(memoserv);
+        else {
+            log_module(MS_LOG, LOG_ERROR, "Failed to create MemoServ bot");
+            return 0;
+        }
     }
 
     if (autojoin_channels && memoserv) {

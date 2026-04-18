@@ -1,7 +1,9 @@
-"write" ("/msg $S WRITE <dbname>",
-        "Writes out one of the databases.  Supported databases are:",
-        "  ${dblist}",
-        "$uSee also:$u writeall");
-"writeall" ("/msg $S WRITEALL",
-        "Writes out all databases at once.",
-        "$uSee also:$u write");
+"<index>" ("$bDatabase System$b",
+           " ",
+           "  WRITE     Force database write",
+           "  WRITEALL  Write all databases",
+           " ",
+           "Synaxis databases are written automatically on a schedule.",
+           "Use WRITE/WRITEALL to force an immediate save.");
+"WRITE" ("$bWRITE$b",
+         "Forces an immediate write of the services database. Useful before shutdown or major changes.");

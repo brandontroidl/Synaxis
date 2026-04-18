@@ -35,6 +35,9 @@
 #include "modules.h"
 #include "opserv.h"
 #include "spamserv.h"
+#include "crypto.h"
+#include "pqcrypto.h"
+#include "ircv3.h"
 
 #ifdef HAVE_GETOPT_H
 #include <getopt.h>
@@ -248,6 +251,18 @@ int main(int argc, char *argv[])
     MAIN_LOG = log_register_type("x3", "file:main.log");
     if (debug)
         log_debug();
+
+    /* Initialize modern crypto subsystems */
+    if (crypto_init() != 0) {
+        fprintf(stderr, "FATAL: Failed to initialize crypto subsystem\n");
+        exit(1);
+    }
+    if (pqcrypto_init() != 0) {
+        /* PQ crypto failure is non-fatal — classical crypto still works */
+        log_module(MAIN_LOG, LOG_WARNING, "Post-quantum crypto unavailable; classical security only");
+    }
+    ircv3_init();
+
     ioset_init();
     init_structs();
     init_parse();
@@ -266,6 +281,11 @@ int main(int argc, char *argv[])
     saxdb_finalize();
     helpfile_finalize();
     modules_finalize();
+
+    /* Late binding pass: module-based services (HostServ, BotServ, etc.)
+     * create their bots in finalize(), which runs after modcmd_finalize().
+     * Re-run create_default_binds to pick up these late-registered services. */
+    modcmd_late_bind();
 
     /* The first exit func to be called *should* be saxdb_write_all(). */
     reg_exit_func(saxdb_write_all, NULL);

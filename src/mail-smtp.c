@@ -1,7 +1,7 @@
 /* mail-smtp.c - mail sending utilities
  * Copyright 2007 srvx Development Team
  *
- * This file is part of srvx.
+ * This file is part of Synaxis (formerly srvx).
  *
  * srvx is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by

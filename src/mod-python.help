@@ -1,0 +1,27 @@
+"<index>" ("$bPython — Scripting Engine$b",
+           " ",
+           "The Python module provides a scripting interface for extending",
+           "Synaxis with Python 3 plugins. Plugins receive IRC events and",
+           "can interact with the network through the _svc module.",
+           " ",
+           "$bCommands:$b",
+           "  RELOAD    Reload all Python plugins",
+           "  RUN       Execute Python code (oper only)",
+           "  COMMAND   Run a plugin command",
+           " ",
+           "$bPlugin Development:$b",
+           "  Place plugins in the plugins/ directory under the scripts path.",
+           "  Each plugin is a directory with a plugin.py containing a Plugin class.",
+           "  Plugin methods: on_join, on_part, on_quit, on_connect, on_kick,",
+           "  on_topic, on_nick_change, on_auth, on_oper, on_channel_mode",
+           " ",
+           "Type $b/msg $S HELP <command>$b for details.");
+"RELOAD" ("$bRELOAD$b",
+          "Shuts down the Python interpreter and reinitializes it, reloading all plugins. Oper only.");
+"RUN" ("$bRUN$b <python code>",
+       "Executes arbitrary Python code. Expressions return their value, statements are executed. Oper only.",
+       "Example: RUN 2 + 2",
+       "Example: RUN import sys; print(sys.version)");
+"COMMAND" ("$bCOMMAND$b <plugin> <command> [args]",
+           "Runs a command defined by a Python plugin. The plugin must have a cmd_<command> method.",
+           "Example: COMMAND hangman start");

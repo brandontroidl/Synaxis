@@ -1,0 +1,52 @@
+"<index>" ("$bHostServ — Virtual Host Service$b",
+           " ",
+           "$bUser Commands:$b",
+           "  REQUEST   Request a virtual hostname",
+           "  ON        Activate your vhost",
+           "  OFF       Deactivate your vhost",
+           "  STATUS    Check your vhost status",
+           " ",
+           "$bStaff Commands:$b",
+           "  SET       Set a vhost for a user",
+           "  SETALL    Set a vhost for all nicks on an account",
+           "  DEL       Remove a user's vhost",
+           "  ACTIVATE  Approve a pending request",
+           "  REJECT    Deny a pending request",
+           "  WAITING   List pending requests",
+           "  LIST      List all active vhosts",
+           " ",
+           "Type $b/msg $S HELP <command>$b for details.");
+"REQUEST" ("$bREQUEST$b <vhost>",
+           "Requests a virtual hostname. Staff will review and approve or deny it.",
+           "Vhosts must match: letters, numbers, hyphens, and dots only.",
+           "Example: REQUEST my.cool.vhost");
+"ON" ("$bON$b",
+      "Activates your virtual hostname. Your displayed host will change to your approved vhost.");
+"OFF" ("$bOFF$b",
+       "Deactivates your virtual hostname. Your displayed host will revert to your real/cloaked host.");
+"GROUP" ("$bGROUP$b",
+         "Syncs your vhost across all nicknames on your account.");
+"SET" ("$bSET$b <nick> <vhost>",
+       "Sets a virtual hostname for the specified user. Staff command.",
+       "Example: SET john cool.virtual.host");
+"SETALL" ("$bSETALL$b <nick> <vhost>",
+          "Sets a virtual hostname for all nicknames linked to a user's account. Staff command.",
+          "Example: SETALL john cool.virtual.host");
+"DEL" ("$bDEL$b <nick>",
+       "Removes the virtual hostname from the specified user. Staff command.");
+"ACTIVATE" ("$bACTIVATE$b <nick>",
+            "Approves a pending vhost request. The user will be notified. Staff command.");
+"REJECT" ("$bREJECT$b <nick> [reason]",
+          "Denies a pending vhost request with an optional reason. Staff command.");
+"WAITING" ("$bWAITING$b",
+           "Lists all pending vhost requests awaiting staff approval.");
+"LIST" ("$bLIST$b [pattern]",
+        "Lists all active virtual hostnames, optionally filtered by a pattern.",
+        "Example: LIST *.staff.*");
+"OFFERLIST" ("$bOFFERLIST$b",
+             "Lists available vhost offers that users can claim.");
+"OFFER" ("$bOFFER$b <vhost>",
+         "Creates a vhost offer that users can claim. Staff command.",
+         "Example: OFFER user.network.org");
+"OFFERDEL" ("$bOFFERDEL$b <vhost>",
+            "Removes a vhost offer. Staff command.");

@@ -1,7 +1,7 @@
 /* hash.h - IRC network state database
  * Copyright 2000-2004 srvx Development Team
  *
- * This file is part of x3.
+ * This file is part of Synaxis (formerly x3).
  *
  * x3 is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -51,11 +51,15 @@
 #define MODE_NOAMSG             0x00200000 /* +T no multi-target messages */
 #define MODE_SSLONLY            0x00400000 /* +Z ssl only */
 #define MODE_HALFOP             0x00800000 /* +h USER */
+#define MODE_OWNER              0x04000000 /* +q USER (channel owner, Cathexis) */
+#define MODE_PROTECT            0x08000000 /* +a USER (channel admin/protect, Cathexis) */
 #define MODE_EXEMPT             0x01000000 /* +e exempt */
-#define MODE_HIDEMODE		0x02000000 /* +L hide modes */
+#define MODE_HIDEMODE		0x02000000 /* +L hide modes (legacy, unused with Cathexis) */
 #define MODE_APASS		0x04000000 /* +A adminpass */
 #define MODE_UPASS		0x08000000 /* +U userpass */
-#define MODE_ADMINSONLY         0x10000000 /* +a Admins only */
+#define MODE_ADMINSONLY         0x10000000 /* +G Admins only (was +a, remapped for Cathexis) */
+#define MODE_PERSIST            0x20000000 /* +z Channel persists when empty (Cathexis) */
+#define MODE_REDIRECT           0x40000000 /* +L Channel redirect (Cathexis, takes channel param) */
 #define MODE_REMOVE             0x80000000
 
 #define FLAGS_OPER		0x00000001 /* Operator +o */
@@ -303,6 +307,7 @@ struct chanNode {
 
     struct chanData *channel_info;
     struct channel_help *channel_help;
+    char redirect[CHANNELLEN + 1]; /* +L redirect target channel (Cathexis) */
     char name[1];
 };
 
@@ -428,7 +433,7 @@ void ReintroduceUser(struct userNode* user);
 typedef void (*nick_change_func_t)(struct userNode *user, const char *old_nick, void *extra);
 void reg_nick_change_func(nick_change_func_t handler, void *extra);
 void NickChange(struct userNode* user, const char *new_nick, int no_announce);
-void SVSNickChange(struct userNode* user, const char *new_nick);
+void SANickChange(struct userNode* user, const char *new_nick);
 
 typedef void (*account_func_t) (struct userNode *user, const char *stamp);
 void reg_account_func(account_func_t handler);

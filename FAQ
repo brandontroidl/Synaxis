@@ -1,58 +1,40 @@
-X3 Frequently Asked Questions
--------------------------------
+Synaxis Frequently Asked Questions
+───────────────────────────────────
 
-This FAQ assumes that your services are named NickServ, ChanServ and
-OpServ respectively.
+Q1) How do I set up Synaxis?
+A1) Read INSTALL. Short version:
+    autoreconf -fi && ./configure --prefix=$HOME/services \
+      --enable-modules=... && make && make install
 
-Q1) How do I set up X3?
-A1) Read the README and INSTALL files, especially INSTALL.
+Q2) How do I connect Synaxis to Cathexis?
+A2) Add a Connect block in Cathexis ircd.conf pointing to
+    Synaxis, and set matching address/port/password in
+    $HOME/services/etc/x3.conf under "uplinks".
 
-Q2) How do I set up my IRC server so X3 talks to it?
-A2) That depends on which IRC server you use.  Check its
-documentation.  Essentially you add a connect block for X3 in
-ircd.conf and point to that at the top of x3.conf. You'll also
-need a UWORLD block etc.
+Q3) Can I use TLS for the S2S link?
+A3) Yes. Set "ssl" "1" in the uplinks block of x3.conf.
+    Optionally configure ssl_certfile, ssl_keyfile, ssl_cafile,
+    and ssl_fingerprint for mutual TLS and cert pinning.
 
-Q3) I get "You must first authenticate with NickServ", help!
-A3) To register an account, /msg NickServ@services.example.com
-register YourName Password.  You must be a global IRC operator to
-register the first account; X3 gives the first account "root" level
-(1000) access.  To log in afterwards, use the "auth" command instead
-of "register".
+Q4) I get "You must first authenticate with NickServ"
+A4) Register: /msg NickServ REGISTER <account> <password>
+    Login:    /msg NickServ AUTH <account> <password>
+    Or:       /msg NickServ IDENTIFY <account> <password>
 
-Q4) I do not like having to type "/msg NickServ@services.example.com"
-for all of my commands.  How can I change that?
-A4) If you want to disable that for the auth command, use "/msg OpServ
-modcmd NickServ.auth flags -qualified".  However, that is a BAD idea:
-if you have an auto-perform to log in, and you connect to some other
-IRC network, you will send your password to whoever or whatever is
-named NickServ on that network.
+Q5) How do I add new command bindings after upgrading?
+A5) /msg OpServ REBINDALL
 
-Q5) How do I restrict all users from registering channels?
-A5) /msg opserv modcmd ChanServ.register flags +helping
-This will allow only network staff to register channels.  For IRC
-operators and network helpers (users with account flag +H), security
-override can be enabled by sending "/msg ChanServ god on".  For 
-support helpers (users with account flag +h), security override is
-enabled when the user is in the configured support channel.
+Q6) What services are available?
+A6) NickServ (58 commands), ChanServ (90 commands),
+    OpServ (143 commands), MemoServ (17 commands),
+    HostServ (14 commands), BotServ (23 commands),
+    HelpServ, SpamServ, Global, WebTV.
 
-Q6) How do I enable HelpServ?
-A6) When you run the "configure" script, you must enable the helpserv
-module; for example, "./configure --enable-modules=helpserv".  After
-you compile and start X3 with that option, "/msg OpServ bind OpServ
-helpserv *helpserv.helpserv".  After that, you can use "/msg OpServ
-helpserv help" and "/msg OpServ helpserv register"; the "helpserv"
-command acts as a gateway into the HelpServ system.
+Q7) What channel modes does Synaxis support?
+A7) Full Cathexis prefix modes:
+    +q (~) Owner, +a (&) Protect, +o (@) Op,
+    +h (%) Halfop, +v (+) Voice.
 
-Q7) How do I enable MemoServ?
-A7) When you run the "configure" script, you must enable the MemoServ
-module; for example, "./configure --enable-modules=memoserv".  Then
-see the comment near the start of src/mod-memoserv.c for configuration
-options.
-
-Q8) How do I enable both HelpServ and MemoServ?
-A8) In addition to the post-install configuration steps above, you
-must mention both when you run the configure script.  For example, run
-it using "./configure --enable-modules=memoserv,helpserv".  (You may
-add the snoop and/or sockcheck modules as well; separate the module
-names with commas.)
+Q8) What password hashing does Synaxis use?
+A8) Argon2id (OWASP 2024 parameters). Legacy MD5 passwords
+    are auto-migrated on first login.

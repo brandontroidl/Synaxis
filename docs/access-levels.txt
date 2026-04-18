@@ -1,31 +1,29 @@
-There are different types of access within X3.  This document
-attempts to list the privileges and restrictions for each (in the
-default configuration -- OpServ and ChanServ may be changed at
-runtime, and the defaults can be changed in the source).
+Synaxis Access Levels
+─────────────────────
 
-The basic classes of users are these:
-  Unauthenticated user
-  Unauthenticated oper
-  Authenticated user
-  Authenticated support helper
-  Authenticated network helper
-  Authenticated oper
+NickServ Account Levels:
+  1    - Normal user
+  300  - Helper (HelpServ access)
+  600  - Oper (operator commands)
+  700  - Network staff
+  800  - Admin
+  900  - Coadmin
+  1000 - Owner/root (first registered account)
 
-"Staff" is used to refer to the set of opers (either authenticated or
-not) plus authenticated support or networkhelpers.  A staff member
-also has an "OpServ access level."  If they are authenticated, it is
-the access level of their handle.  If they are not authenticated, it
-is zero.
+ChanServ Channel Levels:
+  1    - Peon (basic access)
+  100  - Pal
+  200  - Op
+  250  - Halfop manager
+  300  - Manager
+  400  - Coowner
+  500  - Owner
 
-For ChanServ operations on a channel, there is also a "channel access
-level."  For pals, this is 100; for ops, 200; for masters, 300; for
-co-owners, 400; for owners, 500; and for staff members with security
-override on, 600 (if they have a non-override account with sufficient
-access, that is used instead).
-
-Authenticated opers and network helpers may use the !god mode in
-ChanServ to toggle security override on and off.  Support helpers have
-security override on if (and only if) they are in a designated
-"support channel."  On GameSurge, this is #support.
-
-(More documentation goes here.)
+OpServ Command Levels:
+  0    - Public (INFO, etc.)
+  100  - Helper
+  300  - Oper
+  600  - Admin
+  800  - Network Admin
+  900  - Coadmin
+  999  - Root only

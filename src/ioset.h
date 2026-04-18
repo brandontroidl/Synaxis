@@ -1,7 +1,7 @@
 /* ioset.h - srvx event loop
  * Copyright 2002-2003 srvx Development Team
  *
- * This file is part of srvx.
+ * This file is part of Synaxis (formerly srvx).
  *
  * srvx is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -43,6 +43,7 @@ struct io_fd {
     void (*connect_cb)(struct io_fd *fd, int error);
     void (*readable_cb)(struct io_fd *fd);
     void (*destroy_cb)(struct io_fd *fd);
+    void *ssl; /* SSL* when TLS enabled, NULL otherwise */
 };
 extern int do_write_dbs;
 extern int do_reopen;
@@ -53,6 +54,8 @@ struct io_fd *ioset_listen(struct sockaddr *local, unsigned int sa_size, void *d
 struct io_fd *ioset_connect(struct sockaddr *local, unsigned int sa_size, const char *hostname, unsigned int port, int blocking, void *data, void (*connect_cb)(struct io_fd *fd, int error));
 void ioset_update(struct io_fd *fd);
 void ioset_run(void);
+int ioset_ssl_connect(struct io_fd *fd, void *ctx, const char *hostname);
+void ioset_ssl_close(struct io_fd *fd);
 void ioset_write(struct io_fd *fd, const char *buf, unsigned int nbw);
 int ioset_printf(struct io_fd *fd, const char *fmt, ...) PRINTF_LIKE(2, 3);
 int ioset_line_read(struct io_fd *fd, char *buf, int maxlen);

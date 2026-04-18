@@ -1,7 +1,7 @@
 /* ioset.h - srvx event loop
  * Copyright 2002-2004, 2006 srvx Development Team
  *
- * This file is part of srvx.
+ * This file is part of Synaxis (formerly srvx).
  *
  * srvx is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,6 +23,17 @@
 #include "timeq.h"
 #include "saxdb.h"
 #include "conf.h"
+
+#ifdef HAVE_SYS_SELECT_H
+# include <sys/select.h>
+#endif
+#include <sys/time.h>
+
+#ifdef WITH_SSL
+#include <openssl/ssl.h>
+#include <openssl/err.h>
+#include <openssl/x509.h>
+#endif
 
 #ifdef HAVE_FCNTL_H
 #include <fcntl.h>
@@ -191,6 +202,9 @@ ioset_add(int fd) {
     res->fd = fd;
     ioq_init(&res->send, 1024);
     ioq_init(&res->recv, 1024);
+#ifdef WITH_SSL
+    res->ssl = NULL;
+#endif
 #if defined(F_GETFL)
     flags = fcntl(fd, F_GETFL);
     fcntl(fd, F_SETFL, flags|O_NONBLOCK);
@@ -338,18 +352,74 @@ ioset_try_write(struct io_fd *fd) {
     int res;
     unsigned int req;
 
-    req = ioq_get_avail(&fd->send);
-    res = send(fd->fd, fd->send.buf+fd->send.get, req, 0);
-    if (res < 0) {
-        if (errno != EAGAIN) {
-            log_module(MAIN_LOG, LOG_ERROR, "send() on fd %d error %d: %s", fd->fd, errno, strerror(errno));
+    req = ioq_used(&fd->send);
+    if (req == 0)
+        return;
+#ifdef WITH_SSL
+    if (fd->ssl) {
+        /* SSL_write requires contiguous data AND the exact same buffer
+         * on retry (SSL_ERROR_WANT_WRITE). Linearize the ring buffer
+         * into a static scratch buffer to satisfy both requirements. */
+        static char ssl_wbuf[4096];
+        static unsigned int ssl_wlen = 0;
+        static struct io_fd *ssl_wfd = NULL;
+
+        /* If we have a pending retry for a DIFFERENT fd, clear it */
+        if (ssl_wfd && ssl_wfd != fd) {
+            ssl_wlen = 0;
+            ssl_wfd = NULL;
         }
-    } else {
+
+        if (ssl_wlen == 0 || ssl_wfd != fd) {
+            /* Fresh write — linearize ring buffer */
+            unsigned int seg1 = ioq_get_avail(&fd->send);
+            unsigned int seg2 = (req > seg1) ? req - seg1 : 0;
+            if (req > sizeof(ssl_wbuf))
+                req = sizeof(ssl_wbuf);
+            if (seg1 > req) seg1 = req;
+            memcpy(ssl_wbuf, fd->send.buf + fd->send.get, seg1);
+            if (seg2 > 0 && seg1 + seg2 <= sizeof(ssl_wbuf))
+                memcpy(ssl_wbuf + seg1, fd->send.buf, seg2);
+            ssl_wlen = seg1 + seg2;
+            ssl_wfd = fd;
+        }
+
+        res = SSL_write((SSL *)fd->ssl, ssl_wbuf, ssl_wlen);
+        if (res <= 0) {
+            int err = SSL_get_error((SSL *)fd->ssl, res);
+            if (err == SSL_ERROR_WANT_WRITE || err == SSL_ERROR_WANT_READ) {
+                /* Retry later with the SAME ssl_wbuf — do not clear */
+                return;
+            }
+            log_module(MAIN_LOG, LOG_ERROR, "SSL_write on fd %d error %d (SSL_error=%d)",
+                       fd->fd, res, err);
+            ssl_wlen = 0;
+            ssl_wfd = NULL;
+            return;
+        }
+
+        /* Advance ring buffer by amount written */
+        fd->send.get += res;
+        if (fd->send.get >= fd->send.size)
+            fd->send.get -= fd->send.size;
+        ssl_wlen = 0;
+        ssl_wfd = NULL;
+    } else
+#endif
+    {
+        req = ioq_get_avail(&fd->send);
+        res = send(fd->fd, fd->send.buf+fd->send.get, req, 0);
+        if (res < 0) {
+            if (errno != EAGAIN) {
+                log_module(MAIN_LOG, LOG_ERROR, "send() on fd %d error %d: %s", fd->fd, errno, strerror(errno));
+            }
+            return;
+        }
         fd->send.get += res;
         if (fd->send.get == fd->send.size)
             fd->send.get = 0;
-        engine->update(fd);
     }
+    engine->update(fd);
 }
 
 void
@@ -442,6 +512,33 @@ ioset_buffered_read(struct io_fd *fd) {
 
     if (!(put_avail = ioq_put_avail(&fd->recv)))
         put_avail = ioq_grow(&fd->recv);
+#ifdef WITH_SSL
+    if (fd->ssl) {
+        nbr = SSL_read((SSL *)fd->ssl, fd->recv.buf + fd->recv.put, put_avail);
+        if (nbr <= 0) {
+            int err = SSL_get_error((SSL *)fd->ssl, nbr);
+            if (err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE) {
+                /* Retry later — SSL needs more I/O before data is available */
+                return;
+            }
+            if (err == SSL_ERROR_ZERO_RETURN || nbr == 0) {
+                fd->state = IO_CLOSED;
+                fd->readable_cb(fd);
+                if (active_fd == fd)
+                    engine->update(fd);
+                return;
+            }
+            log_module(MAIN_LOG, LOG_ERROR, "SSL_read on fd %d error %d (SSL_error=%d)",
+                       fd->fd, nbr, err);
+            fd->state = IO_CLOSED;
+            fd->readable_cb(fd);
+            if (active_fd == fd)
+                engine->update(fd);
+            return;
+        }
+    } else
+#endif
+    {
     nbr = recv(fd->fd, fd->recv.buf + fd->recv.put, put_avail, 0);
     if (nbr < 0) {
         if (errno != EAGAIN) {
@@ -452,43 +549,47 @@ ioset_buffered_read(struct io_fd *fd) {
             if (active_fd == fd)
                 engine->update(fd);
         }
+        return;
     } else if (nbr == 0) {
         fd->state = IO_CLOSED;
         fd->readable_cb(fd);
         if (active_fd == fd)
             engine->update(fd);
-    } else {
-        if (fd->line_len == 0) {
-            unsigned int pos;
-            for (pos = fd->recv.put; pos < fd->recv.put + nbr; ++pos) {
-                if (IS_EOL(fd->recv.buf[pos])) {
-                    if (fd->recv.put < fd->recv.get)
-                        fd->line_len = fd->recv.size + pos + 1 - fd->recv.get;
-                    else
-                        fd->line_len = pos + 1 - fd->recv.get;
-                    break;
-                }
+        return;
+    }
+    }
+
+    /* Both SSL and non-SSL paths reach here with nbr > 0 */
+    if (fd->line_len == 0) {
+        unsigned int pos;
+        for (pos = fd->recv.put; pos < fd->recv.put + nbr; ++pos) {
+            if (IS_EOL(fd->recv.buf[pos])) {
+                if (fd->recv.put < fd->recv.get)
+                    fd->line_len = fd->recv.size + pos + 1 - fd->recv.get;
+                else
+                    fd->line_len = pos + 1 - fd->recv.get;
+                break;
             }
         }
-        fd->recv.put += nbr;
-        if (fd->recv.put == fd->recv.size)
-            fd->recv.put = 0;
-        while (fd->line_len > 0) {
-            struct io_fd *old_active;
-            int died = 0;
+    }
+    fd->recv.put += nbr;
+    if (fd->recv.put == fd->recv.size)
+        fd->recv.put = 0;
+    while (fd->line_len > 0) {
+        struct io_fd *old_active;
+        int died = 0;
 
-            old_active = active_fd;
-            active_fd = fd;
-            fd->readable_cb(fd);
-            if (active_fd)
-                ioset_find_line_length(fd);
-            else
-                died = 1;
-            if (old_active != fd)
-                active_fd = old_active;
-            if (died)
-                break;
-        }
+        old_active = active_fd;
+        active_fd = fd;
+        fd->readable_cb(fd);
+        if (active_fd)
+            ioset_find_line_length(fd);
+        else
+            died = 1;
+        if (old_active != fd)
+            active_fd = old_active;
+        if (died)
+            break;
     }
 }
 
@@ -579,7 +680,7 @@ ioset_run(void) {
     time_t wakey;
 
     while (!quit_services) {
-        while (!socket_io_fd)
+        while (!socket_io_fd && !quit_services)
             uplink_connect();
 
         /* How long to sleep? (fill in select_timeout) */
@@ -645,3 +746,103 @@ ioset_set_time(unsigned long new_now) {
     clock_skew = new_now - time(NULL);
     now = new_now;
 }
+
+
+int
+ioset_ssl_connect(struct io_fd *fd, void *ssl_ctx, const char *hostname)
+{
+#ifdef WITH_SSL
+    SSL_CTX *ctx = (SSL_CTX *)ssl_ctx;
+    SSL *ssl;
+    int ret;
+
+    if (!fd || !ctx) return 0;
+
+    ssl = SSL_new(ctx);
+    if (!ssl) {
+        log_module(MAIN_LOG, LOG_ERROR, "SSL_new() failed: %s",
+                   ERR_reason_error_string(ERR_get_error()));
+        return 0;
+    }
+
+    SSL_set_fd(ssl, fd->fd);
+
+    /* Set SNI hostname */
+    if (hostname)
+        SSL_set_tlsext_host_name(ssl, hostname);
+
+    /* SSL_connect may need multiple attempts on non-blocking sockets */
+    {
+        int attempts = 0;
+        while (attempts < 50) {
+            ret = SSL_connect(ssl);
+            if (ret == 1)
+                break;
+            int err = SSL_get_error(ssl, ret);
+            if (err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE) {
+                /* Non-blocking socket needs to wait — use select */
+                fd_set rfds, wfds;
+                struct timeval tv;
+                FD_ZERO(&rfds);
+                FD_ZERO(&wfds);
+                if (err == SSL_ERROR_WANT_READ)
+                    FD_SET(fd->fd, &rfds);
+                else
+                    FD_SET(fd->fd, &wfds);
+                tv.tv_sec = 5;
+                tv.tv_usec = 0;
+                select(fd->fd + 1, &rfds, &wfds, NULL, &tv);
+                attempts++;
+                continue;
+            }
+            log_module(MAIN_LOG, LOG_ERROR, "SSL_connect() failed: %s (SSL error %d)",
+                       ERR_reason_error_string(ERR_peek_error()), err);
+            SSL_free(ssl);
+            return 0;
+        }
+        if (ret != 1) {
+            log_module(MAIN_LOG, LOG_ERROR, "SSL_connect() timed out after %d attempts", attempts);
+            SSL_free(ssl);
+            return 0;
+        }
+    }
+
+    fd->ssl = (void *)ssl;
+
+    /* Log connection info */
+    log_module(MAIN_LOG, LOG_INFO, "TLS connection established: %s using %s",
+               SSL_get_version(ssl), SSL_get_cipher_name(ssl));
+
+    /* Log peer certificate info */
+    {
+        X509 *cert = SSL_get_peer_certificate(ssl);
+        if (cert) {
+            char subject[256];
+            X509_NAME_oneline(X509_get_subject_name(cert), subject, sizeof(subject));
+            log_module(MAIN_LOG, LOG_INFO, "TLS peer certificate: %s", subject);
+            X509_free(cert);
+        }
+    }
+
+    return 1;
+#else
+    (void)fd; (void)ssl_ctx; (void)hostname;
+    log_module(MAIN_LOG, LOG_ERROR, "TLS support not compiled in.");
+    return 0;
+#endif
+}
+
+void
+ioset_ssl_close(struct io_fd *fd)
+{
+#ifdef WITH_SSL
+    if (fd && fd->ssl) {
+        SSL_shutdown((SSL *)fd->ssl);
+        SSL_free((SSL *)fd->ssl);
+        fd->ssl = NULL;
+    }
+#else
+    (void)fd;
+#endif
+}
+

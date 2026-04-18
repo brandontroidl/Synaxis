@@ -1,52 +1,49 @@
-# anoy module
+"""Annoy — Example plugin demonstrating hooks and commands."""
 
 import _svc
 
-class Annoy:
 
+class Annoy:
     def __init__(self, handler, irc):
         self.handler = handler
         self.name = "annoy"
 
-#       These hooks are for testing, and are commented out by default so as not to annoy
-#       us unless we want to test them
-        #handler.addhook("join", self.on_join, "foobar")
-        #handler.addhook("nick_change", self.nick_change, ["Rubin", None], "testing")
-
+        # Register commands
         handler.addcommand(self.name, "dance", self.dance)
         handler.addcommand(self.name, "nickof", self.nickof)
-        self.test = "footest"
 
-#    def on_join(self, irc, channel, nick):
-#        irc.send_target_privmsg("x3", channel, "%s joined %s:%s "%(nick, channel, self.test))
+        # Uncomment to enable join hook (will message on every join):
+        # handler.addhook("join", self.on_join)
 
-    def nick_change(self, irc, nick, old_nick):
-        svcinfo = _svc.get_info()
-        # opserv pm #theops that someones nick changed
-        irc.send_target_privmsg(svcinfo["opserv"], "#theops", "%s changed nick to %s"%(old_nick, nick) )
+    def on_join(self, irc, channel, nick):
+        """Called when a user joins a channel."""
+        irc.send_target_privmsg(irc.service or "python", channel,
+                                f"{nick} joined {channel}")
 
     def dance(self, irc, args):
+        """Command: annoy dance [message]"""
         nick = irc.caller
-        user = _svc.get_user(nick)
+        user = _svc.get_user(nick) if hasattr(_svc, 'get_user') else None
 
         reply = "Ok,"
-        if(user and "account" in user):
-           reply +=  " Mr. %s"%user["account"]
-
+        if user and isinstance(user, dict) and "account" in user:
+            reply += f" Mr. {user['account']}"
         reply += " we can dance"
-        if(len(args)):
-            reply += " "
-            reply += args
+        if args:
+            reply += f" {args}"
         reply += "."
-
         irc.reply(reply)
 
     def nickof(self, irc, bot):
-        info = _svc.get_info()
+        """Command: annoy nickof <service>"""
+        try:
+            info = _svc.get_info()
+            if bot and bot in info:
+                irc.reply(f"{bot} has nick {info[bot]}")
+            else:
+                irc.reply(f"Unknown. Available: {', '.join(info.keys())}")
+        except Exception:
+            irc.reply("Service info not available.")
 
-        if(bot and bot in info.keys()):
-            irc.reply("%s has nick %s"%(bot, info[bot]))
-        else:
-            irc.reply("I dunno. Try %s"%str(info.keys()))
 
 Class = Annoy

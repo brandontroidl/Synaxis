@@ -1,27 +1,26 @@
-**************************************
-***        X3 IRC Services         ***
-**************************************
-*** IMPORTANT UPGRADE INSTRUCTIONS ***
-**************************************
-Generally version-to-version upgrades can be done without trouble. The code
-for the most part aims to be backward-compatable. You should back up the .db
-files first (but you back those up anyway, dont you?)
+Synaxis Upgrade Instructions
+────────────────────────────
 
-Sometimes when upgrading, some commands may have changed. When you upgrade
-your .db file may not have command bindings for new commands added.
-There is now a command to assist with this: rebindall.
-If you don't have the 'rebindall' command bound, first bind it:
-    /msg O3 bind o3 * *modcmd.*
-Then, after any upgrade, or after adding modules, or changing command effecting settings
-such as 'email', you can simply run:
-    /msg O3 rebindall
-to ensure you have all the latest commands bound on all services.
+From X3 or older Synaxis:
+  1. Back up your .db files
+  2. Build and install the new version
+  3. After starting, run: /msg OpServ REBINDALL
+     This binds all new commands.
 
-You may do: 'bind nick * *module.*' to re-bind ALL builtin commands on a givin module,
-(chanserv, opserv, nickserv, modcmd, etc) if you prefer to update them individually
-(if you unbind some default commands, and want them to stay unbound).  
-Alternatively you can edit the .db by hand or using the 'bind' command on irc. 
-NOTE: You will need to shut down x3 gracefully (using the die or restart commands)
-after binding in order for 'set' and 'uset' subcommand changes to function properly since
-the listings are cached. 
+Database Compatibility:
+  Synaxis 2.2.0 is backward-compatible with X3 database files.
+  Existing accounts, channels, and settings are preserved.
+  Argon2id passwords are used for new registrations; MD5
+  passwords from older installs are accepted and auto-migrated.
 
+New in 2.2.0:
+  - Native TLS for S2S uplink connections
+  - NickServ: IDENTIFY, DROP, LOGOUT, GROUP, GLIST, ALIST,
+    REGAIN, INFO, CERT, SUSPEND, UNSUSPEND, ACCESS, CONFIRM,
+    UPDATE commands
+  - OpServ: AKILL, NETINFO, IRCOPS, HELPERS, STAFF, FORBID
+  - Channel prefix modes +q (owner) and +a (protect)
+  - GCC 15 clean compilation (0 errors, 0 warnings)
+  - Python 3 support (mod-python)
+  - Argon2id + libsodium password hashing
+  - Proper make install (bin/, etc/, share/, var/)

@@ -1,7 +1,7 @@
 /* Direct Query Server module for srvx 1.x
  * Copyright 2006 Michael Poole <mdpoole@troilus.org>
  *
- * This file is part of srvx.
+ * This file is part of Synaxis (formerly srvx).
  *
  * srvx is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -14,7 +14,7 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with srvx; if not, write to the Free Software Foundation,
+ * along with Synaxis; if not, write to the Free Software Foundation,
  * Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA.
  */
 

@@ -1,7 +1,7 @@
 /* helpfile.c - Help file loading and display
  * Copyright 2000-2004 srvx Development Team
  *
- * This file is part of x3.
+ * This file is part of Synaxis (formerly x3).
  *
  * x3 is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -157,7 +157,7 @@ static void language_set_messages(struct language *lang, dict_t dict)
         it2 = iter_next(it2);
     }
     if (extra || missing)
-        log_module(MAIN_LOG, LOG_WARNING, "In language %s, %d extra and %d missing messages.", lang->name, extra, missing);
+        log_module(MAIN_LOG, LOG_INFO, "In language %s, %d extra and %d missing messages.", lang->name, extra, missing);
 }
 
 static struct language *language_read(const char *name)

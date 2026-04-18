@@ -3,8 +3,8 @@ dnl Process this file with autoconf to create a configure script.
 dnl General initialization.
 AC_REVISION([$Id$])
 AC_PREREQ([2.71])
-AC_INIT([X3],[2.0],[evilnet-devel@lists.sourceforge.net])
-CODENAME=X3
+AC_INIT([Synaxis],[2.3.1],[btroidl@gmail.com])
+CODENAME=Synaxis
 AC_CONFIG_HEADERS(src/config.h)
 AC_CONFIG_SRCDIR(src/opserv.c)
 dnl AM_CANONICAL_TARGET must be before AM_INIT_AUTOMAKE() or autoconf whines
@@ -28,7 +28,6 @@ dnl AC_PROG_LIBTOOL
 
 AC_PROG_LN_S
 AC_PROG_MAKE_SET
-AC_PROG_GCC_TRADITIONAL
 AC_CHECK_PROG(MAKER, gmake, gmake, make)
 
 dnl nice that unixes can all follow a standard.
@@ -389,7 +388,7 @@ if test "${BROKEN_REGEX}" = yes -o "${ac_cv_func_regcomp}" = no; then
   RX_LIBS="../rx/librx.a"
 fi
 MY_SUBDIRS="$MY_SUBDIRS src"
-CFLAGS="$CFLAGS $ANSI_SRC -W -Wall"
+CFLAGS="$CFLAGS $ANSI_SRC -W -Wall -Wno-implicit-fallthrough -Wno-unused-function -Wno-address -Wno-stringop-truncation -Wno-format-truncation -Wno-format-overflow -Wno-misleading-indentation -Wno-old-style-definition -Wno-missing-field-initializers -Wno-unused-but-set-variable -Wno-unused-variable -Wno-use-after-free -Wno-calloc-transposed-args -Wno-unterminated-string-initialization"
 if test "z$USE_MAINTAINER_MODE" = zyes ; then
   CFLAGS="$CFLAGS -Werror"
 fi
@@ -481,13 +480,17 @@ else
    AC_MSG_RESULT([Looking for openssl in system ])
 fi
 
-AC_CHECK_LIB(ssl, BIO_new,
+AC_CHECK_LIB(crypto, BIO_new,
+[
+LIBS="-lcrypto $LIBS"
+AC_CHECK_LIB(ssl, SSL_new,
 [
 LIBS="-lssl $LIBS"
+],)
 AC_CHECK_HEADERS(openssl/bio.h,
 [
 AC_DEFINE(WITH_SSL, 1, [Define if SSL libs are linked])
-ssl_message="LDAP library:        enabled"
+ssl_message="SSL library:         enabled"
 ],
 [
 if test "x$withval" != "x"; then
@@ -497,11 +500,31 @@ fi
 ],
 [
 if test "x$withval" != "x"; then
-   AC_MSG_ERROR([libldap not found or not valid])
+   AC_MSG_ERROR([libcrypto not found or not valid])
 fi
 ]
 )
 AC_MSG_RESULT($LIBS)
+
+dnl Modern cryptography libraries
+dnl libsodium (required for secure random, constant-time ops)
+AC_CHECK_LIB(sodium, sodium_init,
+  [LIBS="-lsodium $LIBS"
+   AC_DEFINE(HAVE_LIBSODIUM, 1, [Define if libsodium is available])],
+  [AC_MSG_ERROR([libsodium is required. Install libsodium-dev.])])
+
+dnl libargon2 (required for modern password hashing)
+AC_CHECK_LIB(argon2, argon2id_hash_encoded,
+  [LIBS="-largon2 $LIBS"
+   AC_DEFINE(HAVE_LIBARGON2, 1, [Define if libargon2 is available])],
+  [AC_MSG_ERROR([libargon2 is required. Install libargon2-dev.])])
+
+dnl liboqs (optional, for post-quantum cryptography)
+AC_CHECK_LIB(oqs, OQS_KEM_new,
+  [LIBS="-loqs $LIBS"
+   AC_DEFINE(HAVE_LIBOQS, 1, [Define if liboqs is available for post-quantum crypto])
+   pq_message="Post-quantum:        enabled (ML-KEM-768 + ML-DSA-65)"],
+  [pq_message="Post-quantum:        disabled (liboqs not found)"])
 
 
 dnl ldap checking
@@ -540,31 +563,37 @@ fi
 
 dnl *********************************************************************
 dnl ** PYTHON ***********************************************************
+dnl ** Requires Python 3.10 or later. Python 2 is not supported.
 dnl *********************************************************************
 
 if test "$python" = yes; then
-        AC_PATH_PROG(pythonpath, python2)
+        AC_PATH_PROG(pythonpath, python3)
         if test "_$pythonpath" = _ ; then
                 AC_PATH_PROG(pythonpath, python)
         fi
         if test "_$pythonpath" = _ ; then
                 python=no
+                AC_MSG_WARN([python3 not found, disabling mod-python])
         else
                 AC_MSG_CHECKING(Python version)
                 changequote(<<, >>)dnl
-                PY_VER=`$pythonpath -c 'import distutils.sysconfig; print distutils.sysconfig.get_config_vars("VERSION")[0];'`
-                PY_LIB=`$pythonpath -c 'import distutils.sysconfig; print distutils.sysconfig.get_python_lib(standard_lib=1);'`
-                PY_INC=`$pythonpath -c 'import distutils.sysconfig; print distutils.sysconfig.get_config_vars("INCLUDEPY")[0];'`
-                $pythonpath -c "import sys; map(int,sys.version[:3].split('.')) >= [2,2] or sys.exit(1)"
+                PY_VER=`$pythonpath -c 'import sysconfig; print(sysconfig.get_config_var("VERSION"))'`
+                PY_MINOR=`$pythonpath -c 'import sys; print(sys.version_info[1])'`
+                PY_MAJOR=`$pythonpath -c 'import sys; print(sys.version_info[0])'`
                 changequote([, ])dnl
                 AC_MSG_RESULT($PY_VER)
-                if test "$?" != "1"; then
+                if test "$PY_MAJOR" -lt 3 || (test "$PY_MAJOR" -eq 3 && test "$PY_MINOR" -lt 10); then
+                        AC_MSG_ERROR([Python 3.10 or later is required (found $PY_VER)])
+                        python=no
+                else
                         AC_MSG_CHECKING(Python compile flags)
-                        PY_PREFIX=`$pythonpath -c 'import sys; print sys.prefix'`
-                        PY_EXEC_PREFIX=`$pythonpath -c 'import sys; print sys.exec_prefix'`
+                        changequote(<<, >>)dnl
+                        PY_INC=`$pythonpath -c 'import sysconfig; print(sysconfig.get_path("include"))'`
+                        PY_LIBDIR=`$pythonpath -c 'import sysconfig; print(sysconfig.get_config_var("LIBDIR"))'`
+                        changequote([, ])dnl
                         if test -f $PY_INC/Python.h; then
 				AC_DEFINE(WITH_PYTHON, 1, [Define if using python])
-                                PY_LIBS="-L$PY_LIB/config -lpython$PY_VER -lpthread -lutil"
+                                PY_LIBS="-L$PY_LIBDIR -lpython$PY_VER -ldl"
                                 PY_CFLAGS="-I$PY_INC"
                                 AC_MSG_RESULT(ok)
                                 CFLAGS="$CFLAGS $PY_CFLAGS"
@@ -573,9 +602,6 @@ if test "$python" = yes; then
                                 python=no
                                 AC_MSG_RESULT([Can't find Python.h])
                         fi
-                else
-                        echo "Python too old. Only 2.2 or above is supported."
-                        python=no
                 fi
         fi
 fi

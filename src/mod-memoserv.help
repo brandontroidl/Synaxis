@@ -1,80 +1,49 @@
-"<INDEX>" (
-	" Hello there!",
-	" I'm $b$S$b, your handy message relay service.",
-	"$b$b",
-	" With this service you can relay long distance",
-	" messages to other users, whether they be on",
-	" or offline.",
-	"=---------------------------------------=",
-        "  $bSEND$b    - Sends a message.",
-        "  $bREAD$b    - Reads a message.",
-        "  $bDELETE$b  - Deletes a message.",
-        "  $bLIST$b    - Lists your messages.",
-        "  $bCANCEL$b  - Cancels a message you have sent.",
-        "  $bHISTORY$b - Lists any existing memos that you have sent.",
-        "  $bSET$b     - Sets certain options in relation with $S.",
-        "  $bEXPIRY$b  - Displays when old unread messages will be deleted.",
-        "  $bSTATUS$b  - Displays a few details about $S's status.",
-	"$b$b",
-        " $bPrivileged Commands:$b",
-        "  $bEXPIRE$b  - Expires messages.",
-        "  $bOSET$b    - Modify account options in relation with $S.",
-	"$b$b",
-        " See $b/msg $S help <command>$b for syntax",
-	" and usage for a command. Before you can",
-	" start using $S you must get an $N",
-	" account, see $b/MSG $N HELP$b for getting",
-	" and maintaining your user account.");
-
-"COMMANDS" "${index}";
-
-"SET" ("/msg $S SET [<setting> <value>]",
-       "Changes your $S settings. Settings are:",
-	"$bAUTHNOTIFY$b     - Indicates if $S should notify you of any new messages when you authenticate with $N. Default is yes.",
-	"$bNEWNOTIFY$b      - Indicates if $S should notify you instantly when someone sends you a new message. Default is yes.",
-        "$bPRIVMSG$b        - If yes, $S will notify you of new messages via message, instead of notice. Default is yes.",
-	"$bPRIVATE$b        - If yes, $S will not allow people to send messages to you (do-not-disturb mode). Default is off.",
-        "$bIGNORERECEIPTS$b - Indicates if $S will always ignore read receipt requests. Default is no.",
-        "$bSENDRECEIPTS$b   - Indicates if $S will always send read receipts with your messages. Default is no.",
-        "$bLIMIT$b          - Indicates how many messages $S will accept before denying them. Set to 0 to receive no messages. Defaults to 50.");
-
-"OSET" ("/msg $S OSET <nick|*account> [<setting> <value>]",
-        "Allows opers/helpers to change a user $S settings. You may set:",
-        "You may use *Account instead of Nick as the name argument; the * makes $S use the name of an account directly (useful if the user is not online).",
-        "$uSee Also:$u set");
-
-"EXPIRY" ("/msg $S EXPIRY ",
-         "Sends you the current time set in which any old unread messages will be deleted.");
-
-"EXPIRE" ("/msg $S EXPIRE ",
-         "Runs an expire process through $S's messages, deleting any messages and history that are over date.",
-         "$uSee Also:$u expiry");
-
-"CANCEL" ("/msg $S CANCEL <id>",
-         "Cancels the messaged marked with <id> as long as you have sent the message.");
-
-"HISTORY" ("/msg $S HISTORY",
-         "Shows you any messages that you have sent, provided that the recipient has not deleted them.",
-         "$uSee Also:$u expiry");
-
-"SEND" ("/msg $S SEND <nick|*account> <-flags> <message>",
-        "Sends a message to a user. Flags can be $br$b to request a read receipt. Take note of the ID number if you wish to cancel the message in the future. The ID number is required in the CANCEL command.",
-        "You may use *Account instead of Nick as the name argument; the * makes $S use the name of an account directly (useful if the user is not online).",
-        "$uSee also:$u read, list");
-
-"READ" ("/msg $S READ <memo id> <-flags>",
-        "Shows you the message behind <memo id>. Flags can be $bi$b to ignore a read receipt request.",
-        "$uSee also:$u send, list");
-
-"DELETE" ("/msg $S DELETE <memo id/*>",
-          "Deletes <memo id> from your inbox.",
-          "NOTE: You may supply $b*$b or $ball$b as the memo id, which will result in $S deleting all your messages.");
-
-"LIST" ("/msg $S LIST",
-        "This will list all the messages in your inbox. Messages marked with (r) have a read receipt requested",
-        "$uSee also:$u read, send");
-        
-"STATUS" ("/msg $S STATUS",
-        "This will list some details about $S's status, i.e the total amount of memos sent and expired.");
-
-"INDEX" "${index}";
+"<index>" ("$bMemoServ — User-to-User Messaging$b",
+           " ",
+           "  SEND     Send a memo to a user",
+           "  LIST     List your memos",
+           "  READ     Read a specific memo",
+           "  DELETE   Delete a memo",
+           "  EXPIRY   View memo expiry settings",
+           "  SET      Configure memo settings",
+           " ",
+           "Memos are delivered when the recipient next authenticates.",
+           "Type $b/msg $S HELP <command>$b for details.");
+"SEND" ("$bSEND$b <account> <message>",
+        "Sends a memo to the specified account. They will be notified on their next login.");
+"LIST" ("$bLIST$b",
+        "Lists all memos in your inbox with their number, sender, date, and read status.");
+"READ" ("$bREAD$b <number|ALL>",
+        "Reads a memo by number, or ALL to read all unread memos.");
+"DELETE" ("$bDELETE$b <number|ALL>",
+          "Deletes a memo by number, or ALL to delete all memos.");
+"CANCEL" ("$bCANCEL$b <account>",
+          "Cancels the last memo you sent to the specified account, if it hasn't been read yet.");
+"HISTORY" ("$bHISTORY$b",
+           "Shows a history of sent and received memos.");
+"EXPIRE" ("$bEXPIRE$b",
+          "Shows when your oldest memos will expire.");
+"EXPIRY" ("$bEXPIRY$b",
+          "Shows the current memo expiry time setting.");
+"STATUS" ("$bSTATUS$b",
+          "Shows how many memos you have and how many are unread.");
+"SET" ("$bSET$b <option> <value>",
+       "Configures your memo settings.",
+       "Options:",
+       "  NOTIFY    ON|OFF  Get notified of new memos on login",
+       "  PRIVATE   ON|OFF  Only accept memos from users on your accept list",
+       "  LIMIT     <num>   Set maximum number of stored memos");
+"OSET" ("$bOSET$b <account> <option> <value>",
+        "Staff command: set memo options for another user.");
+"INFO" ("$bINFO$b [account]",
+        "Shows memo settings for yourself or another account.");
+"FORWARD" ("$bFORWARD$b <account>",
+           "Forwards your memos to another account.");
+"CHECK" ("$bCHECK$b <account>",
+         "Checks if a memo you sent has been read.");
+"IGNORE" ("$bIGNORE$b <ADD|DEL|LIST> [account]",
+          "Manages your memo ignore list. Ignored accounts cannot send you memos.");
+"SENDALL" ("$bSENDALL$b <message>",
+           "Sends a memo to all registered accounts. Staff command.");
+"STAFF" ("$bSTAFF$b <message>",
+         "Sends a memo to all IRC staff members. Staff command.");

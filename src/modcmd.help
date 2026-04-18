@@ -1,144 +1,16 @@
-"bind" ("/msg $S BIND <ServiceNick> <BindName> [Nick|*Module.]<Command> [Arg [Arg[..]]]",
-        "Bind creates a command.  ",
-        "  $bServiceNick$b is which service the new command will work on.",
-        "  $bBindName$b is the name of the new command you are making.",
-        "  $bCommand$b  To refer to a command on the same service.",
-        "  $bNick$b     To refer to a command on a different ",
-        "           service such as $O, $C, $N, etc.",
-        "  $b*Module$b  To bind a command directly from a module such as",
-        "           ChanServ, OpServ, NickServ, modcmd, etc",
-        "           (note the asterisk before the module name).",
-        "  $barg(s)$b   Can be anything, or you can use $$1 $$2 $$3 etc",
-        "           which will be replaced with the arguments passed",
-        "           to the command. Use a - after ($$2-) to indicate",
-        "           that argument and all arguments after it.",
-        "$b$b",
-        "There is a special case to load ALL commands from a module:",
-        "/msg $S bind <serviceNick> * *<Module>.*   ",
-        "       You may need to run this after installing previously",
-        "       missing modules, or making changes such as enabling",
-        "       the email features, so all the commands are bound.",
-        "       Note: Certain(alias) commands will not bind this way; ",
-        "       you must bind them by name. ",
-        "       See $bREBINDALL$b to rebind everything.",
-        "$b$b",
-        "For simplicity, you cannot bind to a command that is an alias.",
-        "$b$b",
-        "If you want to bind $bfoo bar$b as a command, bind $bfoo$b to $b*modcmd.joiner$b first, unless foo is a builtin command such as uset, in which case use '\\' to escape the space (example: $bbind x3 uset\ autoop x3.uset\ autoop$b)",
-        "$b$b",
-        "$uExamples$u",
-        "  bind X3 autoop *chanserv.uset\\ autoop",
-        "  bind O3 murder o3.trace gline nick $$1 duration 1m reason $$2-",
-        "  bind X3 * *chanserv.*",
-        "$b$b",
-        "$uSee also:$u unbind, joiner, modcmd, rebindall");
-
-"commands" ("The following commands are available:",
-            "${index}",
-            "$uSee Also$u: modcmd, command");
-
-"rebindall" ("/msg $S REBINDALL",
-        "Rebinds all available delault commands and aliases for each service and module currently loaded.",
-        "Note: this does NOT remove any additional aliases or bindings you may have made, but will replace any you have deleted.",
-        "Good to use after upgrades or after enabling 'email' support to ensure you have all commands bound to a service bot.",
-        "$uSee also:$u bind (esp 'bind nick * *mod.*'), unbind, modcmd");
-
-"god" ("/msg $C GOD [on|off]",
-        "Toggles security override, which grants you complete access to all channels. Please use carefully.");
-
-"help" ("/msg $S HELP [command]",
-        "Help will show you the information for the given command.",
-        "All help files will use the same syntax, with optional parameters listed in [] and required parameters listed in <>.",
-        "To see what commands are available for use with $S, type /msg $S help commands. For help on any specific command or topic, type /msg $S help command.");
-
-"readhelp" ("/msg $S READHELP <module>",
-        "Re-reads the module's help file from disk.",
-        "$uSee Also:$u help");
-
-"unbind" ("/msg $S UNBIND <service> <command>",
-        "Unbinds a command from a service, so that it is no longer accessible.",
-        "Some commands (such as $bauth$b and $bbind$b) will not let you unbind their last binding -- for obvious reasons.",
-        "$uSee Also:$u bind");
-
-"timecmd" ("/msg $S TIMECMD <command and args>",
-        "Reports how long it takes to run the specified command.");
-
-"command" ("/msg $S COMMAND <command>", 
-        "Shows the restrictions on who can use the named command (and how).",
-        "$uSee Also:$u modcmd, bind");
-
-"modcmd" ("/msg $S MODCMD <command> [<option> <newval> ...]",
-        "Displays and optionally changes options for the specified command.  The command name may be prefixed with $bServiceNick.$b to specify another service's command (for example, $N.AUTH to refer to the auth command).",
-        "Note: For multi-word commands, escape the space with a '\'. Example: trace\ gline",
-        "Supported options are:",
-        "  FLAGS          Comma-separated, +/- prefixed list of flags to add or remove.",
-        "  CHANNEL_ACCESS Minimum ChanServ access.",
-        "  OPER_ACCESS    Minimum OpServ access.",
-        "  ACCOUNT_FLAGS  Account flags to require or deny (for example, +R-S)",
-        "See the $bmodcmd flags$b help entry for a list of supported flags.",
-        "$uSee Also:$u modcmd flags, command, bind");
-
-"modcmd flags" ("The following flags are supported for commands:",
-        "  ACCEPTCHAN     Treat a normal channel name (if specified) as the context for the command",
-        "  ACCEPTPLUSCHAN Accept modeless channel names as well as normal channel names",
-        "  AUTHED         Require that the user be authed to use the command",
-        "  CHANNEL        Require that an existing channel be given as the context",
-        "  CHANUSER       Require that the user have $C access to the context",
-        "  DISABLED       Command is disabled",
-        "  HELPING        Require that the user have security override enabled",
-        "  IGNORE_CSUSPEND  Allow a +REGCHAN command to work even if the channel is suspended",
-        "  JOINABLE       Require that the user have $C access to the channel, be in the channel, or be network staff to use the command",
-        "  KEEPBOUND      Do not let the last instance of the command be removed",
-        "  LOGHOSTMASK    Log the user's ident, hostname and IP (as well as nick and account name)",
-        "  NOLOG          Do not log the command at all",
-        "  NETWORKHELPER  Allow network helpers to use the command",
-        "  OPER           Allow opers to use the command",
-        "  QUALIFIED      Require $b/msg Service@$s$b addressing when using the command",
-        "  REGCHAN        Require a registered channel to be give as the context",
-        "  SUPPORTHELPER  Allow support helpers to use the command",
-        "  TOY            Command is a toy (cannot be invoked on a channel from outside the channel)",
-        "Note: If any of SUPPORTHELPER, NETWORKHELPER, OPER, any of the specified flags is considered sufficient.  For example, NETWORKHELPER and OPER both specified means both network helpers and opers can use the command.");
-
-"joiner" ("/msg $S JOINER [subcmd ...]",
-        "Magically looks up subcommands and redirects to them.  Use the command by itself to see what subcommands are known.",
-        "joiner is used with BIND to make complex subcommands.");
-
-"stats modules" ("/msg $S STATS MODULES [modulename]",
-        "With no module name argument, shows a list of loaded modules and brief statistics for each.",
-        "When a module name is given, shows commands exported by that module.",
-        "$uSee Also:$u stats services, command, modcmd, bind");
-
-"stats services" ("/msg $S STATS SERVICES [botnick]",
-        "With no bot nick argument, shows a list of the service bots using the unified command framework, and brief statistics for each.",
-        "When a bot nick is given, shows commands bound to that service.",
-        "$uSee Also:$u stats modules, command, modcmd, bind, unbind");
-
-"showcommands" ("/msg $S SHOWCOMMANDS [opserv-access] [channel-access]",
-        "Shows commands which you can execute (with their required access levels).  If you give a numeric $O access level or text $C access name, it further restricts output to only show commands which can be executed by users with that access.",
-        "$uSee Also:$u command");
-
-"helpfiles" ("/msg $S HELPFILES <service> [module list]",
-        "With only a service nick, shows the helpfiles used by that service.",
-        "Give a list of modules (separated by spaces), to set the order that the service will look up non-command help entries.",
-        "$uSee Also:$u bind, unbind");
-
-"service add" ("/msg $S SERVICE ADD <nick> <hostname> <description>",
-        "Creates a new service bot.",
-        "$uSee Also:$u service rename, service trigger, service remove");
-
-"service rename" ("/msg $S SERVICE RENAME <oldnick> <newnick>",
-        "Renames a service bot.  Currently does not support the default services.",
-        "$uSee Also:$u service add, service trigger, service remove");
-
-"service trigger" ("/msg $S SERVICE TRIGGER <nick> [remove|<trigger>]",
-        "Sets or clears the trigger character that the named service uses to identify in-channel messages directed at it.",
-        "To remove a trigger, use the word $bremove$b (or $bnone$b) as the argument.  Otherwise, the first letter of the argument will be used as the new trigger.",
-        "If no argument is given, shows the current trigger for the service.",
-        "$uSee Also:$u service add, service rename, service remove");
-
-"service remove" ("/msg $S SERVICE REMOVE <nick> [<quit reason>]",
-        "Destroys a service.  If a default service is named, it will be recreated when X3 restarts.",
-        "$uSee Also:$u service add, service rename, service trigger");
-
-"version" ("/msg $S version",
-        "Sends you version and copyright information for this software.");
+"<index>" ("$bCommand System Help$b",
+           " ",
+           "  BIND      Bind a command to a service",
+           "  UNBIND    Remove a command binding",
+           "  READHELP  Reload help files",
+           "  HELP      Show help for a command",
+           "  VERSION   Show services version",
+           "  GOD       Toggle God mode (staff)",
+           " ",
+           "Commands are bound to services using BIND.",
+           "Type $b/msg $S HELP <command>$b for details.");
+"BIND" ("$bBIND$b <service> <command> <module.function> [extra args]",
+        "Creates a command binding. The command becomes available via the specified service.",
+        "Example: BIND OperServ MYCOMMAND *python.command myplugin myfunction");
+"UNBIND" ("$bUNBIND$b <service> <command>",
+          "Removes a command binding from a service.");

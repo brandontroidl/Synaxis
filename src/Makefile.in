@@ -14,7 +14,6 @@
 
 @SET_MAKE@
 
-
 VPATH = @srcdir@
 am__is_gnu_make = { \
   if test -z '$(MAKELEVEL)'; then \
@@ -118,16 +117,16 @@ am_slab_read_OBJECTS = slab-read.$(OBJEXT)
 slab_read_OBJECTS = $(am_slab_read_OBJECTS)
 slab_read_LDADD = $(LDADD)
 am_x3_OBJECTS = base64.$(OBJEXT) chanserv.$(OBJEXT) compat.$(OBJEXT) \
-	conf.$(OBJEXT) dict-splay.$(OBJEXT) eventhooks.$(OBJEXT) \
-	getopt.$(OBJEXT) getopt1.$(OBJEXT) gline.$(OBJEXT) \
-	global.$(OBJEXT) hash.$(OBJEXT) heap.$(OBJEXT) \
-	helpfile.$(OBJEXT) ioset.$(OBJEXT) log.$(OBJEXT) \
-	main.$(OBJEXT) math.$(OBJEXT) md5.$(OBJEXT) modcmd.$(OBJEXT) \
-	modules.$(OBJEXT) nickserv.$(OBJEXT) opserv.$(OBJEXT) \
-	policer.$(OBJEXT) recdb.$(OBJEXT) sar.$(OBJEXT) \
-	saxdb.$(OBJEXT) spamserv.$(OBJEXT) shun.$(OBJEXT) \
-	timeq.$(OBJEXT) tools.$(OBJEXT) x3ldap.$(OBJEXT) \
-	version.$(OBJEXT)
+	conf.$(OBJEXT) crypto.$(OBJEXT) dict-splay.$(OBJEXT) \
+	eventhooks.$(OBJEXT) getopt.$(OBJEXT) getopt1.$(OBJEXT) \
+	gline.$(OBJEXT) global.$(OBJEXT) hash.$(OBJEXT) heap.$(OBJEXT) \
+	helpfile.$(OBJEXT) ioset.$(OBJEXT) ircv3.$(OBJEXT) \
+	log.$(OBJEXT) main.$(OBJEXT) math.$(OBJEXT) md5.$(OBJEXT) \
+	modcmd.$(OBJEXT) modules.$(OBJEXT) nickserv.$(OBJEXT) \
+	opserv.$(OBJEXT) policer.$(OBJEXT) pqcrypto.$(OBJEXT) \
+	recdb.$(OBJEXT) sar.$(OBJEXT) saxdb.$(OBJEXT) \
+	spamserv.$(OBJEXT) shun.$(OBJEXT) timeq.$(OBJEXT) \
+	tools.$(OBJEXT) x3ldap.$(OBJEXT) version.$(OBJEXT)
 x3_OBJECTS = $(am_x3_OBJECTS)
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
@@ -148,29 +147,31 @@ am__depfiles_remade = ./$(DEPDIR)/alloc-slab.Po \
 	./$(DEPDIR)/alloc-x3.Po ./$(DEPDIR)/base64.Po \
 	./$(DEPDIR)/chanserv.Po ./$(DEPDIR)/checkdb.Po \
 	./$(DEPDIR)/compat.Po ./$(DEPDIR)/conf.Po \
-	./$(DEPDIR)/dict-splay.Po ./$(DEPDIR)/eventhooks.Po \
-	./$(DEPDIR)/getopt.Po ./$(DEPDIR)/getopt1.Po \
-	./$(DEPDIR)/gline.Po ./$(DEPDIR)/global.Po \
-	./$(DEPDIR)/globtest.Po ./$(DEPDIR)/hash.Po \
-	./$(DEPDIR)/heap.Po ./$(DEPDIR)/helpfile.Po \
-	./$(DEPDIR)/ioset-epoll.Po ./$(DEPDIR)/ioset-kevent.Po \
-	./$(DEPDIR)/ioset-select.Po ./$(DEPDIR)/ioset.Po \
-	./$(DEPDIR)/log.Po ./$(DEPDIR)/mail-common.Po \
-	./$(DEPDIR)/mail-sendmail.Po ./$(DEPDIR)/main-common.Po \
-	./$(DEPDIR)/main.Po ./$(DEPDIR)/math.Po ./$(DEPDIR)/md5.Po \
-	./$(DEPDIR)/mod-blacklist.Po ./$(DEPDIR)/mod-helpserv.Po \
+	./$(DEPDIR)/crypto.Po ./$(DEPDIR)/dict-splay.Po \
+	./$(DEPDIR)/eventhooks.Po ./$(DEPDIR)/getopt.Po \
+	./$(DEPDIR)/getopt1.Po ./$(DEPDIR)/gline.Po \
+	./$(DEPDIR)/global.Po ./$(DEPDIR)/globtest.Po \
+	./$(DEPDIR)/hash.Po ./$(DEPDIR)/heap.Po \
+	./$(DEPDIR)/helpfile.Po ./$(DEPDIR)/ioset-epoll.Po \
+	./$(DEPDIR)/ioset-kevent.Po ./$(DEPDIR)/ioset-select.Po \
+	./$(DEPDIR)/ioset.Po ./$(DEPDIR)/ircv3.Po ./$(DEPDIR)/log.Po \
+	./$(DEPDIR)/mail-common.Po ./$(DEPDIR)/mail-sendmail.Po \
+	./$(DEPDIR)/main-common.Po ./$(DEPDIR)/main.Po \
+	./$(DEPDIR)/math.Po ./$(DEPDIR)/md5.Po \
+	./$(DEPDIR)/mod-blacklist.Po ./$(DEPDIR)/mod-botserv.Po \
+	./$(DEPDIR)/mod-helpserv.Po ./$(DEPDIR)/mod-hostserv.Po \
 	./$(DEPDIR)/mod-memoserv.Po ./$(DEPDIR)/mod-python.Po \
 	./$(DEPDIR)/mod-qserver.Po ./$(DEPDIR)/mod-snoop.Po \
 	./$(DEPDIR)/mod-sockcheck.Po ./$(DEPDIR)/mod-track.Po \
 	./$(DEPDIR)/mod-webtv.Po ./$(DEPDIR)/modcmd.Po \
 	./$(DEPDIR)/modules.Po ./$(DEPDIR)/nickserv.Po \
 	./$(DEPDIR)/opserv.Po ./$(DEPDIR)/policer.Po \
-	./$(DEPDIR)/proto-common.Po ./$(DEPDIR)/proto-p10.Po \
-	./$(DEPDIR)/recdb.Po ./$(DEPDIR)/sar.Po ./$(DEPDIR)/saxdb.Po \
-	./$(DEPDIR)/shun.Po ./$(DEPDIR)/slab-read.Po \
-	./$(DEPDIR)/spamserv.Po ./$(DEPDIR)/timeq.Po \
-	./$(DEPDIR)/tools.Po ./$(DEPDIR)/version.Po \
-	./$(DEPDIR)/x3ldap.Po
+	./$(DEPDIR)/pqcrypto.Po ./$(DEPDIR)/proto-common.Po \
+	./$(DEPDIR)/proto-p10.Po ./$(DEPDIR)/recdb.Po \
+	./$(DEPDIR)/sar.Po ./$(DEPDIR)/saxdb.Po ./$(DEPDIR)/shun.Po \
+	./$(DEPDIR)/slab-read.Po ./$(DEPDIR)/spamserv.Po \
+	./$(DEPDIR)/timeq.Po ./$(DEPDIR)/tools.Po \
+	./$(DEPDIR)/version.Po ./$(DEPDIR)/x3ldap.Po
 am__mv = mv -f
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
@@ -193,7 +194,6 @@ am__can_run_installinfo = \
     n|no|NO) false;; \
     *) (install-info --version) >/dev/null 2>&1;; \
   esac
-DATA = $(noinst_DATA)
 am__tagged_files = $(HEADERS) $(SOURCES) $(TAGS_FILES) $(LISP) \
 	config.h.in
 # Read a list of newline-separated strings from the standard input,
@@ -227,7 +227,6 @@ CC = @CC@
 CCDEPMODE = @CCDEPMODE@
 CFLAGS = @CFLAGS@
 CP = @CP@
-CPP = @CPP@
 CPPFLAGS = @CPPFLAGS@
 CSCOPE = @CSCOPE@
 CTAGS = @CTAGS@
@@ -237,10 +236,8 @@ DEPDIR = @DEPDIR@
 ECHO_C = @ECHO_C@
 ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
-EGREP = @EGREP@
 ETAGS = @ETAGS@
 EXEEXT = @EXEEXT@
-GREP = @GREP@
 INSTALL = @INSTALL@
 INSTALL_DATA = @INSTALL_DATA@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
@@ -333,7 +330,7 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 AM_CPPFLAGS = @RX_INCLUDES@ -DSYSCONFDIR=\"@sysconfdir@\" -DPKGDATADIR=\"@datadir@/x3\" -DLOCALSTATEDIR=\"@localstatedir@/x3\"
-noinst_DATA = \
+EXTRA_DIST = \
 	chanserv.help \
 	global.help \
 	modcmd.help \
@@ -345,12 +342,17 @@ noinst_DATA = \
 	mod-sockcheck.help \
 	mod-helpserv.help \
 	mod-memoserv.help \
-        mod-qserver.help \
-        mod-snoop.help \
+	mod-qserver.help \
+	mod-snoop.help \
 	mod-webtv.help \
-	mod-python.help
+	mod-python.help \
+	mod-botserv.help \
+	mod-hostserv.help \
+	mod-groupserv.help \
+	mod-chanfix.help \
+	mod-infoserv.help \
+	mod-no.help
 
-EXTRA_DIST = $(noinst_DATA)
 EXTRA_x3_SOURCES = \
 	alloc-slab.c \
 	alloc-x3.c \
@@ -367,10 +369,15 @@ EXTRA_x3_SOURCES = \
 	mod-track.c \
 	mod-memoserv.c \
 	mod-helpserv.c \
+	mod-hostserv.c \
+	mod-botserv.c \
 	mod-sockcheck.c \
 	mod-webtv.c \
 	mod-python.c \
-	mod-qserver.c
+	mod-qserver.c \
+	mod-groupserv.c \
+	mod-chanfix.c \
+	mod-infoserv.c
 
 x3_LDADD = @MODULE_OBJS@
 x3_DEPENDENCIES = @MODULE_OBJS@
@@ -379,6 +386,7 @@ x3_SOURCES = \
 	chanserv.c chanserv.h \
 	compat.c compat.h \
 	conf.c conf.h \
+	crypto.c crypto.h \
 	dict-splay.c dict.h \
     eventhooks.c eventhooks.h \
 	getopt.c getopt.h \
@@ -389,6 +397,7 @@ x3_SOURCES = \
 	heap.c heap.h \
 	helpfile.c helpfile.h \
 	ioset.c ioset.h ioset-impl.h \
+	ircv3.c ircv3.h \
 	log.c log.h \
 	mail.h \
 	main.c common.h \
@@ -399,6 +408,7 @@ x3_SOURCES = \
 	nickserv.c nickserv.h \
 	opserv.c opserv.h \
 	policer.c policer.h \
+	pqcrypto.c pqcrypto.h \
 	proto.h \
 	recdb.c recdb.h \
 	sar.c sar.h \
@@ -536,6 +546,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/checkdb.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/compat.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/conf.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/crypto.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dict-splay.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/eventhooks.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/getopt.Po@am__quote@ # am--include-marker
@@ -550,6 +561,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ioset-kevent.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ioset-select.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ioset.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ircv3.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/log.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mail-common.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mail-sendmail.Po@am__quote@ # am--include-marker
@@ -558,7 +570,9 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/math.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/md5.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mod-blacklist.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mod-botserv.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mod-helpserv.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mod-hostserv.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mod-memoserv.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mod-python.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mod-qserver.Po@am__quote@ # am--include-marker
@@ -571,6 +585,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/nickserv.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/opserv.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/policer.Po@am__quote@ # am--include-marker
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pqcrypto.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/proto-common.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/proto-p10.Po@am__quote@ # am--include-marker
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/recdb.Po@am__quote@ # am--include-marker
@@ -690,7 +705,7 @@ distdir-am: $(DISTFILES)
 	done
 check-am: all-am
 check: check-am
-all-am: Makefile $(PROGRAMS) $(DATA) config.h
+all-am: Makefile $(PROGRAMS) config.h
 installdirs:
 	for dir in "$(DESTDIR)$(bindir)"; do \
 	  test -z "$$dir" || $(MKDIR_P) "$$dir"; \
@@ -738,6 +753,7 @@ distclean: distclean-am
 	-rm -f ./$(DEPDIR)/checkdb.Po
 	-rm -f ./$(DEPDIR)/compat.Po
 	-rm -f ./$(DEPDIR)/conf.Po
+	-rm -f ./$(DEPDIR)/crypto.Po
 	-rm -f ./$(DEPDIR)/dict-splay.Po
 	-rm -f ./$(DEPDIR)/eventhooks.Po
 	-rm -f ./$(DEPDIR)/getopt.Po
@@ -752,6 +768,7 @@ distclean: distclean-am
 	-rm -f ./$(DEPDIR)/ioset-kevent.Po
 	-rm -f ./$(DEPDIR)/ioset-select.Po
 	-rm -f ./$(DEPDIR)/ioset.Po
+	-rm -f ./$(DEPDIR)/ircv3.Po
 	-rm -f ./$(DEPDIR)/log.Po
 	-rm -f ./$(DEPDIR)/mail-common.Po
 	-rm -f ./$(DEPDIR)/mail-sendmail.Po
@@ -760,7 +777,9 @@ distclean: distclean-am
 	-rm -f ./$(DEPDIR)/math.Po
 	-rm -f ./$(DEPDIR)/md5.Po
 	-rm -f ./$(DEPDIR)/mod-blacklist.Po
+	-rm -f ./$(DEPDIR)/mod-botserv.Po
 	-rm -f ./$(DEPDIR)/mod-helpserv.Po
+	-rm -f ./$(DEPDIR)/mod-hostserv.Po
 	-rm -f ./$(DEPDIR)/mod-memoserv.Po
 	-rm -f ./$(DEPDIR)/mod-python.Po
 	-rm -f ./$(DEPDIR)/mod-qserver.Po
@@ -773,6 +792,7 @@ distclean: distclean-am
 	-rm -f ./$(DEPDIR)/nickserv.Po
 	-rm -f ./$(DEPDIR)/opserv.Po
 	-rm -f ./$(DEPDIR)/policer.Po
+	-rm -f ./$(DEPDIR)/pqcrypto.Po
 	-rm -f ./$(DEPDIR)/proto-common.Po
 	-rm -f ./$(DEPDIR)/proto-p10.Po
 	-rm -f ./$(DEPDIR)/recdb.Po
@@ -837,6 +857,7 @@ maintainer-clean: maintainer-clean-am
 	-rm -f ./$(DEPDIR)/checkdb.Po
 	-rm -f ./$(DEPDIR)/compat.Po
 	-rm -f ./$(DEPDIR)/conf.Po
+	-rm -f ./$(DEPDIR)/crypto.Po
 	-rm -f ./$(DEPDIR)/dict-splay.Po
 	-rm -f ./$(DEPDIR)/eventhooks.Po
 	-rm -f ./$(DEPDIR)/getopt.Po
@@ -851,6 +872,7 @@ maintainer-clean: maintainer-clean-am
 	-rm -f ./$(DEPDIR)/ioset-kevent.Po
 	-rm -f ./$(DEPDIR)/ioset-select.Po
 	-rm -f ./$(DEPDIR)/ioset.Po
+	-rm -f ./$(DEPDIR)/ircv3.Po
 	-rm -f ./$(DEPDIR)/log.Po
 	-rm -f ./$(DEPDIR)/mail-common.Po
 	-rm -f ./$(DEPDIR)/mail-sendmail.Po
@@ -859,7 +881,9 @@ maintainer-clean: maintainer-clean-am
 	-rm -f ./$(DEPDIR)/math.Po
 	-rm -f ./$(DEPDIR)/md5.Po
 	-rm -f ./$(DEPDIR)/mod-blacklist.Po
+	-rm -f ./$(DEPDIR)/mod-botserv.Po
 	-rm -f ./$(DEPDIR)/mod-helpserv.Po
+	-rm -f ./$(DEPDIR)/mod-hostserv.Po
 	-rm -f ./$(DEPDIR)/mod-memoserv.Po
 	-rm -f ./$(DEPDIR)/mod-python.Po
 	-rm -f ./$(DEPDIR)/mod-qserver.Po
@@ -872,6 +896,7 @@ maintainer-clean: maintainer-clean-am
 	-rm -f ./$(DEPDIR)/nickserv.Po
 	-rm -f ./$(DEPDIR)/opserv.Po
 	-rm -f ./$(DEPDIR)/policer.Po
+	-rm -f ./$(DEPDIR)/pqcrypto.Po
 	-rm -f ./$(DEPDIR)/proto-common.Po
 	-rm -f ./$(DEPDIR)/proto-p10.Po
 	-rm -f ./$(DEPDIR)/recdb.Po

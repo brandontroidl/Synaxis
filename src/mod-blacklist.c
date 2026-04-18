@@ -1,7 +1,7 @@
 /* Blacklist module for srvx 1.x
  * Copyright 2007 Michael Poole <mdpoole@troilus.org>
  *
- * This file is part of srvx.
+ * This file is part of Synaxis (formerly srvx).
  *
  * srvx is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -14,7 +14,7 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with srvx; if not, write to the Free Software Foundation,
+ * along with Synaxis; if not, write to the Free Software Foundation,
  * Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA.
  */
 
@@ -23,6 +23,7 @@
 #include "modcmd.h"
 #include "proto.h"
 #include "sar.h"
+#include "sno_masks.h"
 
 const char *blacklist_module_deps[] = { NULL };
 
@@ -153,13 +154,14 @@ dnsbl_hit(struct sar_request *req, struct dns_header *hdr, struct dns_rr *rr, un
             target[1] = '@';
             strcpy(target + 2, data->client_ip);
             gline_add(self->name, target, zone->duration, reason, now, 1, 0);
+            irc_sno(SNO_GLINE, "DNSBL: %s G-lined (%s, zone %s)", target, reason, zone->zone);
         }
     }
     free(txt);
 }
 
 static int
-blacklist_check_user(struct userNode *user)
+blacklist_check_user(struct userNode *user, UNUSED_ARG(void *extra))
 {
     static const char *hexdigits = "0123456789abcdef";
     dict_iterator_t it;
@@ -191,6 +193,7 @@ blacklist_check_user(struct userNode *user)
         target[1] = '@';
         strcpy(target + 2, host);
         gline_add(self->name, target, conf.gline_duration, reason, now, 1, 0);
+        irc_sno(SNO_GLINE, "DNSBL: %s G-lined (%s)", target, reason);
     }
 
     /* Figure out the base part of a DNS blacklist hostname. */
@@ -386,7 +389,7 @@ blacklist_conf_read(void)
 }
 
 static void
-blacklist_cleanup(void)
+blacklist_cleanup(UNUSED_ARG(void *extra))
 {
     dict_delete(blacklist_zones);
     dict_delete(blacklist_hosts);
@@ -398,8 +401,8 @@ blacklist_init(void)
 {
     bl_log = log_register_type("blacklist", "file:blacklist.log");
     conf_register_reload(blacklist_conf_read);
-    reg_new_user_func(blacklist_check_user);
-    reg_exit_func(blacklist_cleanup);
+    reg_new_user_func(blacklist_check_user, NULL);
+    reg_exit_func(blacklist_cleanup, NULL);
     return 1;
 }
 

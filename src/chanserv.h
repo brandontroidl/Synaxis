@@ -1,7 +1,7 @@
 /* chanserv.h - Channel service bot
  * Copyright 2000-2004 srvx Development Team
  *
- * This file is part of x3.
+ * This file is part of Synaxis (formerly x3).
  *
  * x3 is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -117,6 +117,7 @@ struct chanData
     struct dict         *notes;
     struct suspended	*suspended;
     struct giveownership *giveownership;
+    struct userNode     *channel_bot;    /* BotServ assigned bot (NULL = use chanserv) */
     struct chanData	*prev;
     struct chanData	*next;
 };
@@ -231,5 +232,9 @@ void wipe_adduser_pending(struct chanNode *channel, struct userNode *user);
 
 int check_bans(struct userNode *user, const char *channel);
 int trace_check_bans(struct userNode *user, struct chanNode *chan);
+
+/* BotServ integration: get the bot assigned to a channel (or chanserv default) */
+extern struct userNode *chanserv;
+#define GetChannelBot(cData) ((cData)->channel_bot ? (cData)->channel_bot : chanserv)
 
 #endif

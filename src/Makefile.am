@@ -9,7 +9,7 @@ PY_LIBS = @PY_LIBS@
 bin_PROGRAMS = x3
 noinst_PROGRAMS = slab-read
 EXTRA_PROGRAMS = checkdb globtest
-noinst_DATA = \
+EXTRA_DIST = \
 	chanserv.help \
 	global.help \
 	modcmd.help \
@@ -21,12 +21,16 @@ noinst_DATA = \
 	mod-sockcheck.help \
 	mod-helpserv.help \
 	mod-memoserv.help \
-        mod-qserver.help \
-        mod-snoop.help \
+	mod-qserver.help \
+	mod-snoop.help \
 	mod-webtv.help \
-	mod-python.help
-
-EXTRA_DIST = $(noinst_DATA)
+	mod-python.help \
+	mod-botserv.help \
+	mod-hostserv.help \
+	mod-groupserv.help \
+	mod-chanfix.help \
+	mod-infoserv.help \
+	mod-no.help
 
 EXTRA_x3_SOURCES = \
 	alloc-slab.c \
@@ -44,10 +48,15 @@ EXTRA_x3_SOURCES = \
 	mod-track.c \
 	mod-memoserv.c \
 	mod-helpserv.c \
+	mod-hostserv.c \
+	mod-botserv.c \
 	mod-sockcheck.c \
 	mod-webtv.c \
 	mod-python.c \
-	mod-qserver.c
+	mod-qserver.c \
+	mod-groupserv.c \
+	mod-chanfix.c \
+	mod-infoserv.c
 
 x3_LDADD = @MODULE_OBJS@
 x3_DEPENDENCIES = @MODULE_OBJS@
@@ -56,6 +65,7 @@ x3_SOURCES = \
 	chanserv.c chanserv.h \
 	compat.c compat.h \
 	conf.c conf.h \
+	crypto.c crypto.h \
 	dict-splay.c dict.h \
     eventhooks.c eventhooks.h \
 	getopt.c getopt.h \
@@ -66,6 +76,7 @@ x3_SOURCES = \
 	heap.c heap.h \
 	helpfile.c helpfile.h \
 	ioset.c ioset.h ioset-impl.h \
+	ircv3.c ircv3.h \
 	log.c log.h \
 	mail.h \
 	main.c common.h \
@@ -76,6 +87,7 @@ x3_SOURCES = \
 	nickserv.c nickserv.h \
 	opserv.c opserv.h \
 	policer.c policer.h \
+	pqcrypto.c pqcrypto.h \
 	proto.h \
 	recdb.c recdb.h \
 	sar.c sar.h \

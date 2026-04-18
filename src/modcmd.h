@@ -1,7 +1,7 @@
 /* modcmd.h - Generalized module command support
  * Copyright 2002-2004 srvx Development Team
  *
- * This file is part of x3.
+ * This file is part of Synaxis (formerly x3).
  *
  * x3 is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -44,7 +44,7 @@ DECLARE_LIST(module_list, struct module*);
 # define reply(...) send_message(user, cmd->parent->bot, __VA_ARGS__)
 #endif
 #define modcmd_get_handle_info(USER, NAME) smart_get_handle_info(cmd->parent->bot, USER, NAME)
-#define modcmd_chanmode_announce(CHANGE) mod_chanmode_announce(cmd->parent->bot, channel, CHANGE)
+#define modcmd_chanmode_announce(CHANGE) mod_chanmode_announce((channel->channel_info && channel->channel_info->channel_bot) ? channel->channel_info->channel_bot : cmd->parent->bot, channel, CHANGE)
 #define modcmd_chanmode(ARGV, ARGC, FLAGS) mod_chanmode(cmd->parent->bot, channel, ARGV, ARGC, FLAGS)
 
 /* Miscellaneous flags controlling a command */
@@ -195,5 +195,6 @@ void modcmd_init(void);
  * all other modules have registered their commands.
  */
 void modcmd_finalize(void);
+void modcmd_late_bind(void);
 
 #endif /* !defined(MODCMDS_H) */

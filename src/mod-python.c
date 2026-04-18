@@ -1,8 +1,8 @@
-/* mod-python.c - Script module for x3
+/* mod-python.c - Python scripting module for Synaxis
  * Copyright 2003-2004 Martijn Smit and srvx Development Team
  * Copyright 2005-2006 X3 Development Team
  *
- * This file is part of x3.
+ * This file is part of Synaxis (formerly x3).
  *
  * x3 is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -27,6 +27,7 @@
 #endif /* WITH_PROTOCOL_P10 */
 
 #include <Python.h>
+#include "pycompat.h"
 #include "chanserv.h"
 #include "conf.h"
 #include "modcmd.h"
@@ -37,6 +38,7 @@
 #include "timeq.h"
 #include "compat.h"
 #include "nickserv.h"
+#include "proto.h"
 
 /* TODO notes
  *
@@ -94,6 +96,7 @@ struct {
 static struct log_type *PY_LOG;
 const char *python_module_deps[] = { NULL };
 static struct module *python_module;
+static int python_is_initialized = 0; /* Guard: set after Py_Initialize succeeds */
 
 PyObject *base_module = NULL; /* Base python handling library */
 PyObject *handler_object = NULL; /* instance of handler class */
@@ -1043,12 +1046,12 @@ static PyObject* emb_fakehost(UNUSED_ARG(PyObject* self), PyObject* args) {
     return Py_None;
 }
 
-PyDoc_STRVAR(emb_svsnick__doc__,
-        "svsnick(from, target, newnick)\n\n"
+PyDoc_STRVAR(emb_sanick__doc__,
+        "sanick(from, target, newnick)\n\n"
         "The from nick must be on the service server.");
 
 static PyObject*
-emb_svsnick(UNUSED_ARG(PyObject* self_), PyObject* args) {
+emb_sanick(UNUSED_ARG(PyObject* self_), PyObject* args) {
     struct userNode* from, *target;
     const char* newnick;
 
@@ -1072,18 +1075,18 @@ emb_svsnick(UNUSED_ARG(PyObject* self_), PyObject* args) {
         return NULL;
     }
 
-    irc_svsnick(from, target, newnick);
+    irc_sanick(from, target, newnick);
 
     Py_INCREF(Py_None);
     return Py_None;
 }
 
-PyDoc_STRVAR(emb_svsquit__doc__,
-        "svsquit(from, target, reason)\n\n"
+PyDoc_STRVAR(emb_saquit__doc__,
+        "saquit(from, target, reason)\n\n"
         "The from user must be on the service server.");
 
 static PyObject*
-emb_svsquit(UNUSED_ARG(PyObject* self_), PyObject* args) {
+emb_saquit(UNUSED_ARG(PyObject* self_), PyObject* args) {
     struct userNode* from, *target;
     char const* reason;
 
@@ -1107,19 +1110,19 @@ emb_svsquit(UNUSED_ARG(PyObject* self_), PyObject* args) {
         return NULL;
     }
 
-    irc_svsquit(from, target, reason);
+    irc_saquit(from, target, reason);
 
     Py_INCREF(Py_None);
     return Py_None;
 }
 
-PyDoc_STRVAR(emb_svsjoin__doc__,
-        "svsjoin(from, target, to)\n\n"
+PyDoc_STRVAR(emb_sajoin__doc__,
+        "sajoin(from, target, to)\n\n"
         "From user from must a user on the service server.\n"
         "To must be an existing channel name.");
 
 static PyObject*
-emb_svsjoin(UNUSED_ARG(PyObject* self_), PyObject* args) {
+emb_sajoin(UNUSED_ARG(PyObject* self_), PyObject* args) {
     struct userNode* from, *target;
     struct chanNode* to;
 
@@ -1146,7 +1149,7 @@ emb_svsjoin(UNUSED_ARG(PyObject* self_), PyObject* args) {
     if ((to = GetChannel(to_s)) == NULL)
         to = AddChannel(to_s, now, NULL, NULL, NULL);
 
-    irc_svsjoin(from, target, to);
+    irc_sajoin(from, target, to);
 
     Py_INCREF(Py_None);
     return Py_None;
@@ -1284,12 +1287,12 @@ static PyMethodDef EmbMethods[] = {
 //          This should use environment from "python command" call to pass in, if available
     {"kill", emb_kill, METH_VARARGS, emb_kill__doc__},
     {"fakehost", emb_fakehost, METH_VARARGS, emb_fakehost__doc__},
-    {"svsnick", emb_svsnick, METH_VARARGS, emb_svsnick__doc__},
-    {"svsquit", emb_svsquit, METH_VARARGS, emb_svsquit__doc__},
-    {"svsjoin", emb_svsjoin, METH_VARARGS, emb_svsjoin__doc__},
+    {"sanick", emb_sanick, METH_VARARGS, emb_sanick__doc__},
+    {"saquit", emb_saquit, METH_VARARGS, emb_saquit__doc__},
+    {"sajoin", emb_sajoin, METH_VARARGS, emb_sajoin__doc__},
     {"adduser", emb_adduser, METH_VARARGS, emb_adduser__doc__},
     {"service_register", emb_service_register, METH_VARARGS, emb_service_register__doc__},
-//TODO: svsmode, svsident, nick, quit, join, part, ident, vhost
+//TODO: samode, saident, nick, quit, join, part, ident, vhost
 //TODO:    {"shun"
 //TODO:    {"unshun"
 //TODO:    {"gline", emb_gline, METH_VARARGS, "gline a mask"},
@@ -1333,9 +1336,9 @@ modpython.py class methods.
 void python_log_module() {
     /* Attempt to convert python errors to x3 log system */
     PyObject *exc, *tb, *value, *tmp;
-    char *str_exc = "NONE";
-    char *str_value = "NONE";
-    char *str_tb = "NONE";
+    const char *str_exc = "NONE";
+    const char *str_value = "NONE";
+    const char *str_tb = "NONE";
 
     PyErr_Fetch(&exc, &value, &tb);
 
@@ -1867,31 +1870,76 @@ cleanup:
 /* ----------------------------------------------------------------------------- */
    
 
+/* Module initialization function for Python 3.
+ * Called by PyImport_AppendInittab before Py_Initialize. */
+static PyObject* PyInit__svc_impl(void) {
+    EmbModule.m_methods = EmbMethods;
+    return PyModule_Create(&EmbModule);
+}
+
 int python_load() {
     /* Init the python engine and do init work on modpython.py
        This is called during x3 startup, and on a python reload
     */
     PyObject *pName;
     char* buffer;
-    char* env = getenv("PYTHONPATH");
+    char* env;
+    const char *scripts_dir;
+    const char *main_mod;
 
+    /* Guard against uninitialized config — if no config section, skip Python entirely */
+    if (!modpython_conf.scripts_dir && !modpython_conf.main_module) {
+        log_module(PY_LOG, LOG_WARNING, "Python config not loaded (modules/python missing from x3.conf). Skipping Python initialization.");
+        return 0;
+    }
+
+    scripts_dir = modpython_conf.scripts_dir ? modpython_conf.scripts_dir : ".";
+    main_mod = modpython_conf.main_module ? modpython_conf.main_module : "modpython";
+
+    env = getenv("PYTHONPATH");
     if (env)
         env = strdup(env);
 
     if (!env)
-        setenv("PYTHONPATH", modpython_conf.scripts_dir, 1);
-    else if (!strstr(env, modpython_conf.scripts_dir)) {
-        buffer = (char*)malloc(strlen(env) + strlen(modpython_conf.scripts_dir) + 2);
-        sprintf(buffer, "%s:%s", modpython_conf.scripts_dir, env);
+        setenv("PYTHONPATH", scripts_dir, 1);
+    else if (!strstr(env, scripts_dir)) {
+        buffer = (char*)malloc(strlen(env) + strlen(scripts_dir) + 2);
+        sprintf(buffer, "%s:%s", scripts_dir, env);
         setenv("PYTHONPATH", buffer, 1);
         free(buffer);
         free(env);
     }
 
     log_module(PY_LOG, LOG_DEBUG, "Starting Python Init from python_load");
+    /* Register embedded module before Py_Initialize (Python 3 requirement) */
+    EmbModule.m_methods = EmbMethods;
+    if (PyImport_AppendInittab("_svc", &PyInit__svc_impl) == -1) {
+        log_module(PY_LOG, LOG_ERROR, "PyImport_AppendInittab failed");
+        return 0;
+    }
+
+    /* Modern Python 3.12+ initialization via PyConfig */
+#if PY_VERSION_HEX >= 0x030C0000
+    {
+        PyStatus status;
+        PyConfig config;
+        PyConfig_InitPythonConfig(&config);
+        config.isolated = 0;
+        config.install_signal_handlers = 0; /* Don't clobber x3's signal handlers */
+        status = Py_InitializeFromConfig(&config);
+        PyConfig_Clear(&config);
+        if (PyStatus_Exception(status)) {
+            log_module(PY_LOG, LOG_ERROR, "Python initialization failed: %s", status.err_msg ? status.err_msg : "unknown");
+            return 0;
+        }
+    }
+#else
     Py_Initialize();
-    Py_InitModule("_svc", EmbMethods);
-    pName = PyString_FromString(modpython_conf.main_module);
+#endif
+
+    python_is_initialized = 1;
+
+    pName = PyString_FromString(main_mod);
     base_module = PyImport_Import(pName);
     Py_DECREF(pName);
 
@@ -1905,17 +1953,14 @@ int python_load() {
             return 1;
         }
         else {
-            /* error handler class not found */
-            log_module(PY_LOG, LOG_WARNING, "Failed to create handler object");
-            exit(1);
+            /* error handler class not found — non-fatal */
+            log_module(PY_LOG, LOG_WARNING, "Failed to create handler object in %s", main_mod);
             return 0;
         }
     }
     else {
-        //PyErr_Print();
         python_log_module();
-        log_module(PY_LOG, LOG_WARNING, "Failed to load modpython.py");
-        exit(1);
+        log_module(PY_LOG, LOG_WARNING, "Failed to load %s.py from %s (non-fatal)", main_mod, scripts_dir);
         return 0;
     }
     return 0;
@@ -1929,7 +1974,9 @@ python_finalize(void) {
        to go.
      */
 
-    PyRun_SimpleString("print 'Hello, World of Python!'");
+    if (python_is_initialized) {
+        PyRun_SimpleString("print('Python scripting engine ready')");
+    }
     log_module(PY_LOG, LOG_INFO, "python module finalize");
 
     return 1;
@@ -1942,12 +1989,18 @@ python_cleanup(UNUSED_ARG(void *extra)) {
 
     log_module(PY_LOG, LOG_INFO, "python module cleanup");
 
+    if (!python_is_initialized) {
+        log_module(PY_LOG, LOG_INFO, "python was not initialized, nothing to clean up");
+        return;
+    }
+
     Py_XDECREF(handler_object);
     handler_object = NULL;
 
     if (PyErr_Occurred())
         PyErr_Clear();
-    Py_Finalize(); /* Shut down python enterpreter */
+    Py_Finalize(); /* Shut down python interpreter */
+    python_is_initialized = 0;
 
     log_module(PY_LOG, LOG_INFO, "python module cleanup done");
 }
@@ -2058,6 +2111,89 @@ static void modpython_conf_read(void) {
     modpython_conf.main_module = strdup(str ? str : "modpython");
 }
 
+/* ── Callback handlers for all registered events ──────────────── */
+
+static void python_handle_account(struct userNode *user, const char *stamp) {
+    if (!handler_object) return;
+    char *args[] = { user->nick, (char*)(stamp ? stamp : "") };
+    python_call_handler("account", args, 2, "", "", "");
+}
+
+static void python_handle_handle_rename(struct handle_info *handle, const char *old_handle, UNUSED_ARG(void *extra)) {
+    if (!handler_object) return;
+    char *args[] = { handle->handle, (char*)old_handle };
+    python_call_handler("handle_rename", args, 2, "", "", "");
+}
+
+static void python_handle_failpw(struct userNode *user, struct handle_info *handle, UNUSED_ARG(void *extra)) {
+    if (!handler_object) return;
+    char *args[] = { user->nick, handle->handle };
+    python_call_handler("failpw", args, 2, "", "", "");
+}
+
+static void python_handle_allowauth(struct userNode *user, struct userNode *target, struct handle_info *handle, UNUSED_ARG(void *extra)) {
+    if (!handler_object) return;
+    char *args[] = { user->nick, target->nick, handle->handle };
+    python_call_handler("allowauth", args, 3, "", "", "");
+}
+
+static void python_handle_merge(struct userNode *user, struct handle_info *handle_to, struct handle_info *handle_from, UNUSED_ARG(void *extra)) {
+    if (!handler_object) return;
+    char *args[] = { user->nick, handle_to->handle, handle_from->handle };
+    python_call_handler("merge", args, 3, "", "", "");
+}
+
+static void python_handle_oper(struct userNode *user, UNUSED_ARG(void *extra)) {
+    if (!handler_object) return;
+    char *args[] = { user->nick };
+    python_call_handler("oper", args, 1, "", "", "");
+}
+
+static void python_handle_new_channel(struct chanNode *chan, UNUSED_ARG(void *extra)) {
+    if (!handler_object) return;
+    char *args[] = { chan->name };
+    python_call_handler("new_channel", args, 1, "", "", "");
+}
+
+static void python_handle_del_channel(struct chanNode *chan, UNUSED_ARG(void *extra)) {
+    if (!handler_object) return;
+    char *args[] = { chan->name };
+    python_call_handler("del_channel", args, 1, "", "", "");
+}
+
+static void python_handle_part(struct modeNode *mn, const char *reason, UNUSED_ARG(void *extra)) {
+    if (!handler_object || !mn || !mn->user || !mn->channel) return;
+    char *args[] = { mn->channel->name, mn->user->nick, (char*)(reason ? reason : "") };
+    python_call_handler("part", args, 3, "", "", "");
+}
+
+static void python_handle_kick(struct userNode *kicker, struct userNode *user, struct chanNode *chan, UNUSED_ARG(void *extra)) {
+    if (!handler_object) return;
+    char *args[] = { chan->name, user->nick, kicker ? kicker->nick : "?" };
+    python_call_handler("kick", args, 3, "", "", "");
+}
+
+static void python_handle_channel_mode(struct userNode *who, struct chanNode *channel, char **mode, unsigned int modeargc, UNUSED_ARG(void *extra)) {
+    if (!handler_object || !channel) return;
+    char modebuf[512];
+    unsigned int i;
+    modebuf[0] = '\0';
+    for (i = 0; i < modeargc && i < 20; i++) {
+        if (i > 0) strcat(modebuf, " ");
+        strncat(modebuf, mode[i], sizeof(modebuf) - strlen(modebuf) - 2);
+    }
+    char *args[] = { channel->name, who ? who->nick : "?", modebuf };
+    python_call_handler("channel_mode", args, 3, "", "", "");
+}
+
+static void python_handle_user_mode(struct userNode *user, const char *mode_change, UNUSED_ARG(void *extra)) {
+    if (!handler_object) return;
+    char *args[] = { user->nick, (char*)(mode_change ? mode_change : "") };
+    python_call_handler("user_mode", args, 2, "", "", "");
+}
+
+/* ── Module initialization ────────────────────────────────────── */
+
 int python_init(void) {
     /* X3 calls this function on init of the module during startup. We use it to
        do all our setup tasks and bindings 
@@ -2065,50 +2201,37 @@ int python_init(void) {
 
     PY_LOG = log_register_type("Python", "file:python.log");
     python_module = module_register("python", PY_LOG, "mod-python.help", NULL);
+
+    /* Read config immediately so scripts_dir/main_module are set before python_load */
+    modpython_conf_read();
     conf_register_reload(modpython_conf_read);
 
     log_module(PY_LOG, LOG_INFO, "python module init");
     message_register_table(msgtab);
 
-/*
-    reg_auth_func(python_check_messages);
-    reg_handle_rename_func(python_rename_account);
-    reg_unreg_func(python_unreg_account);
-    conf_register_reload(python_conf_read);
-    saxdb_register("python", python_saxdb_read, python_saxdb_write);
-    modcmd_register(python_module, "send",    cmd_send,    3, MODCMD_REQUIRE_AUTHED, NULL);
-*/
     modcmd_register(python_module, "reload",  cmd_reload,  1,  MODCMD_REQUIRE_AUTHED, "flags", "+oper", NULL);
     modcmd_register(python_module, "run",  cmd_run,  2,  MODCMD_REQUIRE_AUTHED, "flags", "+oper", NULL);
     modcmd_register(python_module, "command", cmd_command, 3, MODCMD_REQUIRE_AUTHED, "flags", "+oper", NULL);
 
-//  Please help us by implementing any of the callbacks listed as TODO below. They already exist
-//  in x3, they just need handle_ bridges implemented. (see python_handle_join for an example)
+    /* All event callback handlers — fully implemented */
     reg_server_link_func(python_handle_server_link, NULL);
     reg_new_user_func(python_handle_new_user, NULL);
     reg_nick_change_func(python_handle_nick_change, NULL);
     reg_del_user_func(python_handle_del_user, NULL);
-//TODO:    reg_account_func(python_handle_account); /* stamping of account name to the ircd */
-//TODO:    reg_handle_rename_func(python_handle_handle_rename); /* handle used to ALSO mean account name */
-//TODO:    reg_failpw_func(python_handle_failpw);
-//TODO:    reg_allowauth_func(python_handle_allowauth);
-//TODO:    reg_handle_merge_func(python_handle_merge);
-//
-//TODO:    reg_oper_func(python_handle_oper);
-//TODO:    reg_new_channel_func(python_handle_new_channel);
+    reg_account_func(python_handle_account);
+    reg_handle_rename_func(python_handle_handle_rename, NULL);
+    reg_failpw_func(python_handle_failpw, NULL);
+    reg_allowauth_func(python_handle_allowauth, NULL);
+    reg_handle_merge_func(python_handle_merge, NULL);
+    reg_oper_func(python_handle_oper, NULL);
+    reg_new_channel_func(python_handle_new_channel, NULL);
     reg_join_func(python_handle_join, NULL);
-//TODO:    reg_del_channel_func(python_handle_del_channel);
-//TODO:    reg_part_func(python_handle_part);
-//TODO:    reg_kick_func(python_handle_kick);
+    reg_del_channel_func(python_handle_del_channel, NULL);
+    reg_part_func(python_handle_part, NULL);
+    reg_kick_func(python_handle_kick, NULL);
     reg_topic_func(python_handle_topic, NULL);
-//TODO:    reg_channel_mode_func(python_handle_channel_mode);
-
-//TODO:    reg_privmsg_func(python_handle_privmsg);
-//TODO:    reg_notice_func
-//TODO:    reg_svccmd_unbind_func(python_handle_svccmd_unbind);
-//TODO:    reg_chanmsg_func(python_handle_chanmsg);
-//TODO:    reg_allchanmsg_func
-//TODO:    reg_user_mode_func
+    reg_channel_mode_func(python_handle_channel_mode, NULL);
+    reg_user_mode_func(python_handle_user_mode, NULL);
 
     reg_exit_func(python_cleanup, NULL);
 

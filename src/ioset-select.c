@@ -1,7 +1,7 @@
 /* ioset select() backend for srvx
  * Copyright 2002-2006 srvx Development Team
  *
- * This file is part of srvx.
+ * This file is part of Synaxis (formerly srvx).
  *
  * srvx is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by

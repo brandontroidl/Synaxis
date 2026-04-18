@@ -1,7 +1,7 @@
 /* x3ldap.c - LDAP functionality for x3, by Rubin
  * Copyright 2002-2007 x3 Development Team
  *
- * This file is part of x3.
+ * This file is part of Synaxis (formerly x3).
  *
  * x3 is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by

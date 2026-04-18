@@ -1,7 +1,7 @@
 /* modcmd.c - Generalized module command support
  * Copyright 2002-2004 srvx Development Team
  *
- * This file is part of x3.
+ * This file is part of Synaxis (formerly x3).
  *
  * x3 is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -707,6 +707,19 @@ svccmd_invoke_argv(struct userNode *user, struct service *service, struct chanNo
         return 0;
     }
     cmd = dict_find(service->commands, argv[cmd_arg], NULL);
+    if (!cmd && argc > cmd_arg + 1) {
+        /* Try compound command: "word1 word2" (e.g., "bot add", "set color") */
+        static char compound[MAXLEN];
+        snprintf(compound, sizeof(compound), "%s %s", argv[cmd_arg], argv[cmd_arg + 1]);
+        cmd = dict_find(service->commands, compound, NULL);
+        if (cmd) {
+            /* Found compound command — consume the second word by shifting args */
+            unsigned int jj;
+            for (jj = cmd_arg + 1; jj + 1 < argc; jj++)
+                argv[jj] = argv[jj + 1];
+            argc--;
+        }
+    }
     if (!cmd) {
         if (!channel)
             send_message(user, service->bot, "MSG_COMMAND_UNKNOWN", argv[cmd_arg]);
@@ -2528,6 +2541,12 @@ create_default_binds(int rebind) {
         { "NickServ", { "NickServ", NULL } },
         { "OpServ", { "OpServ", "modcmd", "sendmail", "saxdb", "proxycheck", NULL } },
         { "SpamServ", { "SpamServ", NULL } },
+        { "HostServ", { "HostServ", NULL } },
+        { "BotServ", { "BotServ", NULL } },
+        { "MemoServ", { "MemoServ", NULL } },
+        { "GroupServ", { "GroupServ", NULL } },
+        { "ChanFix", { "ChanFix", NULL } },
+        { "InfoServ", { "InfoServ", NULL } },
         { NULL, { NULL } }
     };
     unsigned int ii, jj;
@@ -2536,11 +2555,39 @@ create_default_binds(int rebind) {
     struct module *module;
 
     for (ii = 0; def_binds[ii].svcname; ++ii) {
+        /* Try services/<Name>/nick first (core services) */
         sprintf(buf, "services/%s/nick", def_binds[ii].svcname);
-        if (!(nick = conf_get_data(buf, RECDB_QSTRING)))
+        nick = conf_get_data(buf, RECDB_QSTRING);
+        if (!nick) {
+            /* Try modules/<name>/bot (module-based services like HostServ) */
+            char lower[128];
+            unsigned int k;
+            for (k = 0; def_binds[ii].svcname[k] && k < sizeof(lower) - 1; k++)
+                lower[k] = tolower((unsigned char)def_binds[ii].svcname[k]);
+            lower[k] = '\0';
+            sprintf(buf, "modules/%s/bot", lower);
+            nick = conf_get_data(buf, RECDB_QSTRING);
+        }
+        if (!nick) {
+            /* Try modules/<name>/nick as final fallback */
+            char lower[128];
+            unsigned int k;
+            for (k = 0; def_binds[ii].svcname[k] && k < sizeof(lower) - 1; k++)
+                lower[k] = tolower((unsigned char)def_binds[ii].svcname[k]);
+            lower[k] = '\0';
+            sprintf(buf, "modules/%s/nick", lower);
+            nick = conf_get_data(buf, RECDB_QSTRING);
+        }
+        if (!nick) {
+            log_module(MAIN_LOG, LOG_WARNING, "create_default_binds: no nick found for %s", def_binds[ii].svcname);
             continue;
-        if (!(service = service_find(nick)))
+        }
+        if (!(service = service_find(nick))) {
+            log_module(MAIN_LOG, LOG_WARNING, "create_default_binds: service_find(%s) failed for %s", nick, def_binds[ii].svcname);
             continue;
+        }
+        log_module(MAIN_LOG, LOG_DEBUG, "create_default_binds: binding %s (nick=%s, cmds=%d, rebind=%d)",
+                   def_binds[ii].svcname, nick, dict_size(service->commands), rebind);
         if (dict_size(service->commands) > 0 && !rebind)
             continue;
 
@@ -2552,7 +2599,10 @@ create_default_binds(int rebind) {
         }
 
         /* Bind the help and version commands to this service */
-        service_bind_modcmd(service, help_command, help_command->name);
+        if (!service_bind_modcmd(service, help_command, help_command->name))
+            log_module(MAIN_LOG, LOG_WARNING, "create_default_binds: FAILED to bind help to %s", nick);
+        else
+            log_module(MAIN_LOG, LOG_DEBUG, "create_default_binds: bound help to %s", nick);
         service_bind_modcmd(service, version_command, version_command->name);
         service_bind_modcmd(service, credits_command, credits_command->name);
 
@@ -2564,13 +2614,15 @@ create_default_binds(int rebind) {
             service_make_alias(service, "addmanager", "*chanserv.adduser", "$1", "manager", "$2", NULL);
             service_make_alias(service, "addop", "*chanserv.adduser", "$1", "op", "$2", NULL);
             service_make_alias(service, "addhop", "*chanserv.adduser", "$1", "halfop", "$2", NULL);
-            service_make_alias(service, "addpeon", "*chanserv.adduser", "$1", "peon", "$2", NULL);
+            service_make_alias(service, "addpeon", "*chanserv.adduser", "$1", "voice", "$2", NULL);
+            service_make_alias(service, "addvoice", "*chanserv.adduser", "$1", "voice", "$2", NULL);
             service_make_alias(service, "addpal", "*chanserv.adduser", "$1", "pal", "$2", NULL);
             service_make_alias(service, "delowner", "*chanserv.deluser", "owner", "$1", NULL);
             service_make_alias(service, "delcoowner", "*chanserv.deluser", "coowner", "$1", NULL);
             service_make_alias(service, "delmanager", "*chanserv.deluser", "manager", "$1", NULL);
             service_make_alias(service, "delop", "*chanserv.deluser", "op", "$1", NULL);
-            service_make_alias(service, "delpeon", "*chanserv.deluser", "peon", "$1", NULL);
+            service_make_alias(service, "delpeon", "*chanserv.deluser", "voice", "$1", NULL);
+            service_make_alias(service, "delvoice", "*chanserv.deluser", "voice", "$1", NULL);
             service_make_alias(service, "delpal", "*chanserv.deluser", "pal", "$1", NULL);
             service_make_alias(service, "llist", "*chanserv.lamers", "$1",  NULL);
             service_make_alias(service, "command", "*modcmd.command", NULL);
@@ -2653,4 +2705,14 @@ modcmd_finalize(void) {
         free(ptempl->base);
         free(ptempl);
     }
+}
+
+void
+modcmd_late_bind(void) {
+    /* Second pass: bind help/version/credits to services that were
+     * created during modules_finalize() (e.g., HostServ, BotServ,
+     * MemoServ, GroupServ, ChanFix, InfoServ). These services call
+     * service_register() in their finalize function, which runs
+     * AFTER modcmd_finalize()/create_default_binds(). */
+    create_default_binds(1);
 }

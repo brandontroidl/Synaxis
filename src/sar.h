@@ -1,7 +1,7 @@
 /* sar.h - srvx asynchronous resolver
  * Copyright 2005, 2007 Michael Poole <mdpoole@troilus.org>
  *
- * This file is part of srvx.
+ * This file is part of Synaxis (formerly srvx).
  *
  * srvx is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by

@@ -1,7 +1,7 @@
-/* mod-webtv.c - WebTV Module for X3
+/* mod-webtv.c - WebTV/Legacy Gateway Module for Synaxis
  * Copyright 2007 X3 Development Team
  *
- * This file is part of x3.
+ * This file is part of Synaxis (formerly x3).
  *
  * x3 is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -36,6 +36,7 @@
 #include "chanserv.h"
 #include "conf.h"
 #include "modcmd.h"
+#include "sno_masks.h"
 #include "nickserv.h"
 #include "opserv.h"
 #include "saxdb.h"
@@ -148,7 +149,8 @@ static MODCMD_FUNC(cmd_nick)
         return 0;
     }
 
-    irc_svsnick(webtv, user, argv[1]);
+    irc_sanick(webtv, user, argv[1]);
+    irc_sno(SNO_SACMD, "WEBTV: %s force-nicked %s to %s", user->nick, user->nick, argv[1]);
     return 1;
 }
 
@@ -253,7 +255,8 @@ part_all_channels(struct userNode *target)
 
     for (n=0; n<target->channels.used; n++) {
         mn = target->channels.list[n];
-        irc_svspart(webtv, target, mn->channel);
+        irc_sapart(webtv, target, mn->channel);
+    irc_sno(SNO_SACMD, "WEBTV: Force-parted %s from %s", target->nick, mn->channel->name);
     }
 
     return;
@@ -330,7 +333,8 @@ static MODCMD_FUNC(cmd_join)
     }
 
     part_all_channels(user);
-    irc_svsjoin(webtv, user, target);
+    irc_sajoin(webtv, user, target);
+    irc_sno(SNO_SACMD, "WEBTV: %s force-joined %s to %s", user->nick, user->nick, target->name);
     return 1;
 }
 
@@ -358,7 +362,7 @@ static MODCMD_FUNC(cmd_part)
         return 0;
     }
 
-    irc_svspart(webtv, user, target);
+    irc_sapart(webtv, user, target);
     return 1;
 }
 
@@ -393,7 +397,7 @@ webtv_conf_read(void)
 }
 
 static void
-webtv_cleanup(void)
+webtv_cleanup(UNUSED_ARG(void *extra))
 {
 }
 
@@ -432,12 +436,11 @@ webtv_finalize(void) {
 
     str = database_get_data(conf_node, "bot", RECDB_QSTRING);
     if (str) {
-        webtv = webtv_conf.bot;
         const char *modes = conf_get_data("modules/webtv/modes", RECDB_QSTRING);
         webtv = AddLocalUser(str, str, NULL, "WebTV IRC Service", modes);
     } else {
-        log_module(WB_LOG, LOG_ERROR, "database_get_data for webtv_conf.bot failed!");
-        exit(1);
+        log_module(WB_LOG, LOG_WARNING, "modules/webtv/bot not set — WebTV bot disabled");
+        return 1;
     }
 
     if (autojoin_channels && webtv) {

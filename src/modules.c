@@ -1,7 +1,7 @@
 /* modules.c - Compiled-in module support
  * Copyright 2002-2003 srvx Development Team
  *
- * This file is part of x3.
+ * This file is part of Synaxis (formerly x3).
  *
  * x3 is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by

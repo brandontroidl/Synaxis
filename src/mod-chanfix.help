@@ -1,0 +1,30 @@
+"<index>" ("$bChanFix — Automated Channel Recovery$b",
+           " ",
+           "ChanFix tracks who has ops in unregistered channels. When a",
+           "channel loses all ops (takeover, netsplit), ChanFix can restore",
+           "ops to the users who historically held them.",
+           " ",
+           "Scores are recorded every 5 minutes. Higher scores = longer op history.",
+           "ChanFix does NOT manage ChanServ-registered channels.",
+           " ",
+           "$bCommands:$b",
+           "  FIX       Manually fix a channel (op top scorers)",
+           "  SCORE     View scores for a channel",
+           "  INFO      View ChanFix data for a channel",
+           "  ENABLE    Enable tracking for a channel",
+           "  DISABLE   Disable tracking for a channel",
+           " ",
+           "Type $b/msg $S HELP <command>$b for details.");
+"FIX" ("$bFIX$b <#channel>",
+       "Manually triggers a channel fix. Ops the top 5 highest-scoring accounts currently in the channel.",
+       "Only works on unregistered channels. Requires oper access.",
+       "A score of at least 12 (~1 hour of ops) is needed to be considered.");
+"SCORE" ("$bSCORE$b <#channel>",
+         "Shows the top op-time scores for the channel. Higher score = more time spent opped.",
+         "Maximum score is 4032 (14 days of continuous ops at 5-minute snapshots).");
+"INFO" ("$bINFO$b <#channel>",
+        "Shows ChanFix metadata: number of tracked accounts, last snapshot time, and flags.");
+"ENABLE" ("$bENABLE$b <#channel>",
+          "Enables ChanFix tracking for a channel. Oper only.");
+"DISABLE" ("$bDISABLE$b <#channel>",
+           "Disables ChanFix tracking for a channel. Existing scores are preserved. Oper only.");

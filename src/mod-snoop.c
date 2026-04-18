@@ -1,7 +1,7 @@
 /* mod-snoop.c - User surveillance module (per pomac's spec)
  * Copyright 2002-2004 srvx Development Team
  *
- * This file is part of x3.
+ * This file is part of Synaxis (formerly x3).
  *
  * x3 is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -14,7 +14,7 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with srvx; if not, write to the Free Software Foundation,
+ * along with Synaxis; if not, write to the Free Software Foundation,
  * Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA.
  */
 
@@ -34,6 +34,7 @@
 #include "conf.h"
 #include "helpfile.h"
 #include "nickserv.h"
+#include "sno_masks.h"
 
 #ifdef HAVE_NETINET_IN_H
 #include <netinet/in.h>
@@ -62,11 +63,25 @@ int snoop_finalize(void);
 #endif
 #define UPDATE_TIMESTAMP() strftime(timestamp, sizeof(timestamp), "[%H:%M:%S]", localtime(&now))
 
+/*
+ * SNO dispatch: Also route snoop events to server notice masks.
+ * This enables opers to receive snoop-like notifications via +s
+ * without needing to be in the snoop channel.
+ *
+ * Mask mapping:
+ *   NICK/AUTH → SNO_NICKCHG (N) / SNO_ACCOUNT (R)
+ *   JOIN/PART/KICK → SNO_CONNEXIT (c)
+ *   NEW/DEL → SNO_CONNEXIT (c)
+ *   MODE → SNO_OLDSNO (o)
+ *   OPER → SNO_OLDSNO (o)
+ */
+
 static void
 snoop_nick_change(struct userNode *user, const char *old_nick, UNUSED_ARG(void *extra)) {
     if (!snoop_cfg.enabled) return;
     UPDATE_TIMESTAMP();
     SNOOP("$bNICK$b change %s -> %s", old_nick, user->nick);
+    irc_sno(SNO_NICKCHG, "SNOOP: Nick change %s -> %s", old_nick, user->nick);
 }
 
 static int
@@ -78,8 +93,10 @@ snoop_join(struct modeNode *mNode, UNUSED_ARG(void *extra)) {
     UPDATE_TIMESTAMP();
     if (chan->members.used == 1) {
         SNOOP("$bCREATE$b %s by %s", chan->name, user->nick);
+        irc_sno(SNO_CONNEXIT, "SNOOP: %s created %s", user->nick, chan->name);
     } else {
         SNOOP("$bJOIN$b %s by %s", chan->name, user->nick);
+        irc_sno(SNO_CONNEXIT, "SNOOP: %s joined %s", user->nick, chan->name);
     }
     return 0;
 }
@@ -90,6 +107,7 @@ snoop_part(struct modeNode *mn, const char *reason, UNUSED_ARG(void *extra)) {
     if (mn->user->dead) return;
     UPDATE_TIMESTAMP();
     SNOOP("$bPART$b %s by %s (%s)", mn->channel->name, mn->user->nick, reason ? reason : "");
+    irc_sno(SNO_CONNEXIT, "SNOOP: %s parted %s", mn->user->nick, mn->channel->name);
 }
 
 static void
@@ -97,6 +115,7 @@ snoop_kick(struct userNode *kicker, struct userNode *victim, struct chanNode *ch
     if (!snoop_cfg.enabled) return;
     UPDATE_TIMESTAMP();
     SNOOP("$bKICK$b %s from %s by %s", victim->nick, chan->name, (kicker ? kicker->nick : "some server"));
+    irc_sno(SNO_CONNEXIT, "SNOOP: %s kicked from %s by %s", victim->nick, chan->name, kicker ? kicker->nick : "server");
 }
 
 static int
@@ -105,6 +124,7 @@ snoop_new_user(struct userNode *user, UNUSED_ARG(void *extra)) {
     if (user->uplink->burst && !snoop_cfg.show_bursts) return 0;
     UPDATE_TIMESTAMP();
     SNOOP("$bNICK$b %s %s@%s (%s) [%s] on %s", user->nick, user->ident, user->hostname, user->handle_info?user->handle_info->handle:"", irc_ntoa(&user->ip), user->uplink->name);
+    irc_sno(SNO_CONNEXIT, "SNOOP: Connect %s (%s@%s) on %s", user->nick, user->ident, user->hostname, user->uplink->name);
     return 0;
 }
 
@@ -114,8 +134,10 @@ snoop_del_user(struct userNode *user, struct userNode *killer, const char *why, 
     UPDATE_TIMESTAMP();
     if (killer) {
         SNOOP("$bKILL$b %s (%s@%s, on %s) by %s (%s)", user->nick, user->ident, user->hostname, user->uplink->name, killer->nick, why);
+        irc_sno(SNO_OPERKILL, "SNOOP: %s killed by %s: %s", user->nick, killer->nick, why);
     } else {
         SNOOP("$bQUIT$b %s (%s@%s, on %s) (%s)", user->nick, user->ident, user->hostname, user->uplink->name, why);
+        irc_sno(SNO_CONNEXIT, "SNOOP: %s quit: %s", user->nick, why);
     }
 }
 
@@ -129,6 +151,7 @@ snoop_auth(struct userNode *user, UNUSED_ARG(struct handle_info *old_handle), UN
          * re-authed or something.
          */
         SNOOP("$bAUTH$b %s as %s", user->nick, user->handle_info->handle);
+        irc_sno(SNO_ACCOUNT, "SNOOP: %s authenticated as %s", user->nick, user->handle_info->handle);
     }
 }
 
@@ -344,6 +367,8 @@ snoop_finalize(void) {
         return 0;
     snoop_cfg.bot = GetUserH(str);
     if (!snoop_cfg.bot)
+        return 0;
+    if (!snoop_cfg.channel)
         return 0;
     mod_chanmode_init(&change);
     change.argc = 1;

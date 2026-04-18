@@ -1,7 +1,7 @@
 /* common.h - Common functions/includes
  * Copyright 2000-2004 srvx Development Team
  *
- * This file is part of x3.
+ * This file is part of Synaxis (formerly x3).
  *
  * x3 is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -200,6 +200,9 @@ unsigned long ParseVolume(const char *volume);
 /* buffer[] must be at least MD5_CRYPT_LENGTH bytes long */
 const char *cryptpass(const char *pass, char buffer[]);
 int checkpass(const char *pass, const char *crypt);
+
+/* Modern password hash length (Argon2id encoded strings) */
+#define PASSWD_HASH_LENGTH 256
 
 int split_ircmask(char *text, char **nick, char **ident, char **host);
 char *unsplit_string(char *set[], unsigned int max, char *dest);

@@ -1,193 +1,267 @@
-#!/usr/bin/python
+"""
+modpython.py — Synaxis Python 3 Scripting Framework
+Copyright (c) Cathexis Development
 
+Main module loaded by mod-python.c. Provides:
+  - irc class: context object passed to every event callback
+  - handler class: dispatches events, manages plugins and commands
 
-# TODO notes:
-#
-# - impliment handle_* functions for everything x3 has register fetaures for
-# - impliment script load/unload for user scripts.
-#       - load a script via this script. 
-#       - script calls functions from here to set its functions up for calling on various actions
-# - provide helper functions for subscripts to save settings attached to users/chanels
-# - provide helper functions for scripts to do common things like msg a person or a channel,
-#   reply, etc.
+Python 3.10+ required. Tested with Python 3.13.
 
-import _svc
-import plugins
+Setup in x3.conf:
+  "modules" {
+    "python" {
+      "scripts_dir" "/home/you/services/share/x3";
+      "main_module" "modpython";
+    };
+  };
 
-import math
+Bind commands:
+  /msg OperServ BIND OperServ py run *python.run
+  /msg OperServ BIND OperServ py reload *python.reload
+  /msg OperServ BIND OperServ py command *python.command
+"""
 
+from __future__ import annotations
+import importlib
+import os
 import sys
+import traceback
+
+try:
+    import _svc
+except ImportError:
+    class _svc:
+        """Mock for testing outside Synaxis."""
+        @staticmethod
+        def dump(msg): print(f"[dump] {msg}")
+        @staticmethod
+        def log_module(level, msg): print(f"[log:{level}] {msg}")
+        @staticmethod
+        def send_target_privmsg(src, tgt, msg): print(f">{src}>{tgt}: {msg}")
+        @staticmethod
+        def send_target_notice(src, tgt, msg): print(f"-{src}-{tgt}: {msg}")
+        @staticmethod
+        def kill(src, tgt, reason): print(f"[kill] {tgt}: {reason}")
+        @staticmethod
+        def kick(src, tgt, chan, reason): print(f"[kick] {tgt} from {chan}: {reason}")
+        @staticmethod
+        def get_user(nick): return None
+        @staticmethod
+        def get_info(): return {}
+        @staticmethod
+        def get_channel(name): return None
+        @staticmethod
+        def get_account(name): return None
+        @staticmethod
+        def fakehost(tgt, host): pass
+        @staticmethod
+        def sanick(src, old, new): pass
+        @staticmethod
+        def saquit(src, tgt, reason): pass
+        @staticmethod
+        def sajoin(src, tgt, chan): pass
 
 
 class irc:
-    """Used to interact with the world of IRC from module scripts"""
+    """IRC context object created by C code for every event callback.
 
-    # some defaults to make shorthand easy
-    caller = ''
-    target = ''
-    service = ''
+    Attributes:
+        service  — service nick handling the event (e.g. "ChanServ")
+        caller   — nick of the user who triggered the event
+        target   — channel name (if applicable) or empty string
+    """
 
-    def __init__(self, service = None, caller = None, target = None):
-        """ Constructor """
-        self.caller = caller   #the person who sent the command/message
-        self.service = service #the service who saw the message
-        self.target = target   #the channel message was in (if public)
+    def __init__(self, service="", caller="", target=""):
+        self.service = service or ""
+        self.caller = caller or ""
+        self.target = target or ""
 
-    def send_target_privmsg(self, source, target, message):
-        _svc.send_target_privmsg(source, target,  "%s "%(message))
+    def reply(self, msg):
+        """Send a reply to the caller via the current service."""
+        if self.caller:
+            _svc.send_target_privmsg(self.service, self.caller, str(msg))
 
-    def reply(self, message):
-        """ Send a private reply to the user using convenience values"""
-        #print "DEBUG: sending a message from %s to %s: %s"%(self.service, self.caller, message)
-        if(len(self.target)):
-            self.send_target_privmsg(self.service, self.target, "%s: %s"%(self.caller, message))
-        else:
-            self.send_target_privmsg(self.service, self.caller, message)
+    def send_target_privmsg(self, source, target, msg):
+        """Send a PRIVMSG from source to target."""
+        _svc.send_target_privmsg(source, target, str(msg))
+
+    def send_target_notice(self, source, target, msg):
+        """Send a NOTICE from source to target."""
+        _svc.send_target_notice(source, target, str(msg))
+
 
 class handler:
-    """ Main hub of python system. Handle callbacks from c. """
+    """Main event handler. C code creates one instance and calls methods for events."""
 
     def __init__(self):
-        #print "DEBUG: constructor for handler initing"
-        self.plugins = plugins_(self)
-        if(not self.plugins):
-            print "DEBUG: unable to make self.plugins!?!"
-        self.newplugins = plugins.load()
+        self.plugins = {}
+        self.hooks = {}      # event_name -> [(callback, args, extra)]
+        self.commands = {}    # "plugin.cmd" -> callback
+        _svc.log_module(1, "Python handler initialized")
+        self._load_plugins()
 
-    def init(self, irc): # not to be confused with __init__!
-        """ This gets called once all the objects are up and running. Otherwise,
-        were not done initing this own instance to be able to start calling it """
-        #print "DEBUG: in handler.init()"
-        self.plugins.init()
-        return 0
+    # ─── Plugin system ───
 
-    def join(self, irc, channel, nick):
-        #user = _svc.get_user(nick)
-        #print "DEBUG: handler.join()"
-        return self.plugins.callhandler("join", irc, [channel, nick], [channel, nick])
+    def addhook(self, event, callback, args=None, extra=None):
+        """Register a callback for an IRC event."""
+        if event not in self.hooks:
+            self.hooks[event] = []
+        self.hooks[event].append((callback, args, extra))
 
-    def server_link(self, server):
-        for plugin in self.newplugins:
-            if plugin.server_link(server):
-                return 1
-        return 0
+    def addcommand(self, plugin_name, command, callback):
+        """Register a plugin command."""
+        key = f"{plugin_name}.{command}".lower()
+        self.commands[key] = callback
 
-    def new_user(self, user):
-        for plugin in self.newplugins:
-            if plugin.new_user(user):
-                return 1
-        return 0
+    def _fire_hooks(self, event, irc_obj, *args):
+        """Fire all hooks registered for an event."""
+        for callback, hook_args, extra in self.hooks.get(event, []):
+            try:
+                callback(irc_obj, *args)
+            except Exception:
+                _svc.log_module(3, f"Hook error in {event}: {traceback.format_exc()}")
 
-    def nick_change(self, user, oldnick):
-        for plugin in self.newplugins:
-            plugin.nick_change(user, oldnick)
+    def _load_plugins(self):
+        """Load plugins from plugins/ directory."""
+        plugins_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "plugins")
+        if not os.path.isdir(plugins_dir):
+            _svc.log_module(1, f"No plugins directory at {plugins_dir}")
+            return
 
-    def del_user(self, user, killer, why):
-        for plugin in self.newplugins:
-            plugin.del_user(user, killer, why)
+        if plugins_dir not in sys.path:
+            sys.path.insert(0, os.path.dirname(plugins_dir))
 
-    def topic(self, who, chan, old_topic):
-        for plugin in self.newplugins:
-            if plugin.topic(who, chan, old_topic):
-                return 1
-        return 0
+        for name in sorted(os.listdir(plugins_dir)):
+            if name.startswith(".") or name.startswith("__"):
+                continue
+            path = os.path.join(plugins_dir, name)
+            if not os.path.isdir(path):
+                continue
+            plugin_file = os.path.join(path, "plugin.py")
+            if not os.path.exists(plugin_file):
+                continue
+            try:
+                mod = importlib.import_module(f"plugins.{name}.plugin")
+                importlib.reload(mod)
+                cls = getattr(mod, "Class", None) or getattr(mod, "Plugin", None)
+                if cls:
+                    dummy_irc = irc()
+                    instance = cls(self, dummy_irc)
+                    self.plugins[name] = instance
+                    _svc.log_module(1, f"Loaded plugin: {name}")
+                else:
+                    _svc.log_module(2, f"Plugin {name}: no Class or Plugin found")
+            except Exception:
+                _svc.log_module(3, f"Failed to load plugin {name}: {traceback.format_exc()}")
 
-    def cmd_run(self, irc, cmd):
-        #print "DEBUG: handler.cmd_run: %s"%cmd
-        eval(cmd)
-        return 0
+    # ─── Event callbacks from C ───
 
-    def addhook(self, event, method, filter=[None], data=None):
-        self.plugins.addhook(event, method, filter, data)
-        return 0
+    def init(self, irc_obj, *args):
+        """Called after Python is fully initialized."""
+        _svc.log_module(1, f"Python framework ready — {len(self.plugins)} plugin(s), "
+                        f"{len(self.commands)} command(s), {sum(len(v) for v in self.hooks.values())} hook(s)")
+        return 1
 
-    def addcommand(self, plugin, command, method):
-        self.addhook("command", method, [plugin, command])
+    def join(self, irc_obj, channel, nick):
+        self._fire_hooks("join", irc_obj, channel, nick)
+        return 1
 
-    def cmd_command(self, irc, plugin, cmd, args):
-        #print "DEBUG: handel.cmd_command; %s %s; args= %s"%(plugin, cmd, args)
-        return self.plugins.callhandler("command", irc, [plugin, cmd], [args])
+    def server_link(self, server_name):
+        self._fire_hooks("server_link", irc(), server_name)
+        return 1
 
-    def load(self, irc, plugin):
-        return self.plugins.load(plugin)
+    def new_user(self, irc_obj, *args):
+        self._fire_hooks("new_user", irc_obj, *args)
+        return 1
 
-class plugins_:
-    """Class to handle loading/unloading of plugins"""
-    loaded_plugins = {}
-    hooks = []
+    def nick_change(self, irc_obj, nick, old_nick):
+        self._fire_hooks("nick_change", irc_obj, nick, old_nick)
+        return 1
 
-    class hook:
-        """ This is a request from a plugin to be called on an event """
-        event = ""     # Event to be called on (eg "join")
-        method = None  # Method to call
-        filter = None  # Arguments to filter
-        data = ""      # plugin-supplied data for plugin use
-        
-        def __init__(self, event, method, filter, data):
-            self.event = event
-            self.method = method
-            self.filter = filter
-            self.data = data
+    def del_user(self, irc_obj, *args):
+        self._fire_hooks("del_user", irc_obj, *args)
+        return 1
 
-        def event_is(self, event, evdata):
-            if(self.event == event):
-                for i in range(len(self.filter)):
-                    if( self.filter[i] != None 
-                      and self.filter[i] != evdata[i]): # should be case insensitive? or how to compare?
-                        #print "DEBUG: rejecting event, %s is not %s"%(self.filter[i], evdata[i])
-                        return False
-                return True
-            else:
-                return False
+    def topic(self, irc_obj, *args):
+        self._fire_hooks("topic", irc_obj, *args)
+        return 1
 
-        def trigger(self, irc, args):
-            #print "DEBUG: Triggering %s event. with '%s' arguments."%(self.event, args)
-            self.method(irc, *args)
+    def part(self, irc_obj, *args):
+        self._fire_hooks("part", irc_obj, *args)
+        return 1
 
-    def __init__(self, handler):
-        """ Constructor """
-        #print "DEBUG: constructor for plugins initing"
-        self.handler = handler
+    def kick(self, irc_obj, *args):
+        self._fire_hooks("kick", irc_obj, *args)
+        return 1
 
-    def init(self):
-        #print "DEBUG: in plugins.init()"
-        self.load("annoy")
-        self.load("hangman")
+    def account(self, irc_obj, *args):
+        self._fire_hooks("account", irc_obj, *args)
+        return 1
 
-    def addhook(self, event, method, filter=[None], data=None):
-        #print "DEBUG: Adding hook for %s."%event
-        self.hooks.append(self.hook(event, method, filter, data))
+    def oper(self, irc_obj, *args):
+        self._fire_hooks("oper", irc_obj, *args)
+        return 1
 
-    def findhooksforevent(self, event, data):
-        ret = []
-        #print "DEBUG: findhooksforevent() looking..."
-        for hook in self.hooks:
-            #print "DEBUG: looking at a %s hook..."%hook.event
-            if(hook.event_is(event, data)):
-                ret.append(hook)
-        return ret
+    def channel_mode(self, irc_obj, *args):
+        self._fire_hooks("channel_mode", irc_obj, *args)
+        return 1
 
-    def callhandler(self, event, irc, filter, args):
-        for hook in self.findhooksforevent(event, filter):
-            if(hook.trigger(irc, args)):
-                return 1
-        return 0
+    def user_mode(self, irc_obj, *args):
+        self._fire_hooks("user_mode", irc_obj, *args)
+        return 1
 
-    def load(self, name):
-        """ Loads a plugin by name """
-        mod_name = "plugins.%s"%name
-        need_reload = False
-        if(sys.modules.has_key(mod_name)):
-            need_reload = True
-        #TODO: try to catch compile errors etc.
+    def new_channel(self, irc_obj, *args):
+        self._fire_hooks("new_channel", irc_obj, *args)
+        return 1
 
-        if(need_reload == False):
-            __import__(mod_name)
-        module = sys.modules[mod_name]
-        if(need_reload == True):
-            reload(module) # to ensure its read fresh
-        Class = module.Class
-        pluginObj = Class(self.handler, irc())
-        self.loaded_plugins[mod_name] = pluginObj
-        return True
+    def del_channel(self, irc_obj, *args):
+        self._fire_hooks("del_channel", irc_obj, *args)
+        return 1
 
+    def handle_rename(self, irc_obj, *args):
+        self._fire_hooks("handle_rename", irc_obj, *args)
+        return 1
+
+    def failpw(self, irc_obj, *args):
+        self._fire_hooks("failpw", irc_obj, *args)
+        return 1
+
+    def allowauth(self, irc_obj, *args):
+        self._fire_hooks("allowauth", irc_obj, *args)
+        return 1
+
+    def merge(self, irc_obj, *args):
+        self._fire_hooks("merge", irc_obj, *args)
+        return 1
+
+    def cmd_run(self, irc_obj, *args):
+        """Handle: py run <code>"""
+        code = " ".join(str(a) for a in args) if args else ""
+        if not code:
+            irc_obj.reply("Usage: run <python code>")
+            return
+        try:
+            result = eval(code)
+            irc_obj.reply(f"Result: {result}")
+        except SyntaxError:
+            try:
+                exec(code)
+                irc_obj.reply("Executed.")
+            except Exception as e:
+                irc_obj.reply(f"Error: {e}")
+        except Exception as e:
+            irc_obj.reply(f"Error: {e}")
+
+    def cmd_command(self, irc_obj, plugin_name, command, *args):
+        """Handle: py command <plugin> <cmd> [args]"""
+        key = f"{plugin_name}.{command}".lower()
+        callback = self.commands.get(key)
+        if not callback:
+            irc_obj.reply(f"Unknown command: {plugin_name} {command}")
+            return
+        try:
+            arg_str = " ".join(str(a) for a in args) if args else ""
+            callback(irc_obj, arg_str)
+        except Exception as e:
+            irc_obj.reply(f"Error: {e}")

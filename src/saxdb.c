@@ -1,7 +1,7 @@
 /* saxdb.c - srvx database manager
  * Copyright 2002-2004 srvx Development Team
  *
- * This file is part of x3.
+ * This file is part of Synaxis (formerly x3).
  *
  * x3 is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,6 +19,7 @@
  */
 
 #include "conf.h"
+#include "crypto.h"
 #include "hash.h"
 #include "modcmd.h"
 #include "saxdb.h"
@@ -27,6 +28,10 @@
 #if !defined(SAXDB_BUFFER_SIZE)
 # define SAXDB_BUFFER_SIZE (32 * 1024)
 #endif
+
+/* Database encryption state */
+static unsigned char db_encrypt_key[CRYPTO_DB_KEY_LEN];
+static int db_encrypt_enabled = 0;
 
 DEFINE_LIST(int_list, int)
 
@@ -63,10 +68,40 @@ static void saxdb_timed_write(void *data);
 static void
 saxdb_read_db(struct saxdb *db) {
     struct dict *data;
+    const char *read_path;
+    char dec_fname[MAXLEN];
+    int decrypted = 0;
 
     assert(db);
     assert(db->filename);
-    data = parse_database(db->filename);
+
+    read_path = db->filename;
+
+    /* If file is encrypted and we have a key, decrypt to temp file first */
+    if (db_encrypt_enabled && crypto_db_is_encrypted(db->filename)) {
+        sprintf(dec_fname, "%s.dec", db->filename);
+        int rc = crypto_db_decrypt_file(db->filename, dec_fname, db_encrypt_key);
+        if (rc == 0) {
+            read_path = dec_fname;
+            decrypted = 1;
+        } else if (rc == -2) {
+            log_module(MAIN_LOG, LOG_ERROR,
+                "Database %s: decryption FAILED — authentication error (wrong key?)",
+                db->filename);
+            return;
+        } else {
+            log_module(MAIN_LOG, LOG_ERROR,
+                "Database %s: decryption FAILED — trying as plaintext",
+                db->filename);
+        }
+    }
+
+    data = parse_database(read_path);
+
+    /* Clean up decrypted temp file */
+    if (decrypted)
+        remove(dec_fname);
+
     if (!data)
         return;
     if (db->writer == saxdb_mondo_writer) {
@@ -162,6 +197,22 @@ saxdb_write_db(struct saxdb *db) {
     saxdb_close_context(ctx, 1);
     if (rename(tmp_fname, db->filename) < 0) {
         log_module(MAIN_LOG, LOG_ERROR, "Unable to rename %s to %s: %s", tmp_fname, db->filename, strerror(errno));
+    }
+
+    /* Encrypt the database file if encryption is enabled */
+    if (db_encrypt_enabled) {
+        char enc_fname[MAXLEN];
+        sprintf(enc_fname, "%s.enc", db->filename);
+        if (crypto_db_encrypt_file(db->filename, enc_fname, db_encrypt_key) == 0) {
+            if (rename(enc_fname, db->filename) < 0) {
+                log_module(MAIN_LOG, LOG_ERROR, "Unable to rename encrypted %s: %s",
+                    enc_fname, strerror(errno));
+                remove(enc_fname);
+            }
+        } else {
+            log_module(MAIN_LOG, LOG_ERROR, "Failed to encrypt %s — database written UNENCRYPTED",
+                db->filename);
+        }
     }
     db->last_write = now;
     db->last_write_duration = finish - start;
@@ -537,9 +588,24 @@ saxdb_expand_help(const char *variable) {
 
 void
 saxdb_init(void) {
+    const char *passphrase;
     reg_exit_func(saxdb_cleanup, NULL);
     saxdbs = dict_new();
     dict_set_free_data(saxdbs, saxdb_free);
+
+    /* Initialize database encryption if configured */
+    passphrase = conf_get_data("server/db_encryption_key", RECDB_QSTRING);
+    if (passphrase && *passphrase) {
+        if (crypto_db_derive_key(passphrase, db_encrypt_key) == 0) {
+            db_encrypt_enabled = 1;
+            log_module(MAIN_LOG, LOG_INFO,
+                "Database encryption enabled (AES-256-GCM)");
+        } else {
+            log_module(MAIN_LOG, LOG_ERROR,
+                "Database encryption key derivation failed — databases will be UNENCRYPTED");
+        }
+    }
+
     saxdb_register("mondo", saxdb_mondo_reader, saxdb_mondo_writer);
     saxdb_module = module_register("saxdb", MAIN_LOG, "saxdb.help", saxdb_expand_help);
     modcmd_register(saxdb_module, "write", cmd_write, 2, MODCMD_REQUIRE_AUTHED, "level", "800", NULL);

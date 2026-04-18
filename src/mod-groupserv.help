@@ -1,0 +1,47 @@
+"<index>" ("$bGroupServ — Account Group Management$b",
+           " ",
+           "Groups let you manage access for multiple accounts at once.",
+           "Grant a group ChanServ access with: ACCESS ADD !groupname <level>",
+           " ",
+           "$bGroup Management:$b",
+           "  CREATE    Create a new group",
+           "  DROP      Delete a group (founder only)",
+           "  SET       Configure group options",
+           "  INFO      View group details",
+           "  LIST      List groups",
+           " ",
+           "$bMembership:$b",
+           "  JOIN      Join an open group",
+           "  LEAVE     Leave a group",
+           "  INVITE    Invite an account (admin+)",
+           "  KICK      Remove an account (admin+)",
+           "  FLAGS     View/set member flags",
+           " ",
+           "Type $b/msg $S HELP <command>$b for details.");
+"CREATE" ("$bCREATE$b <groupname>",
+          "Creates a new group. You become the founder with full control.",
+          "Group names are limited to 32 characters.");
+"DROP" ("$bDROP$b <groupname>",
+        "Permanently deletes a group. Only the founder can drop a group.");
+"JOIN" ("$bJOIN$b <groupname>",
+        "Joins an open group. The group must have the OPEN flag set.",
+        "Use INFO to check if a group is open.");
+"LEAVE" ("$bLEAVE$b <groupname>",
+         "Leaves a group. The founder cannot leave — use DROP instead.");
+"INVITE" ("$bINVITE$b <groupname> <account>",
+          "Invites an account to the group. Requires admin flag (+A).");
+"KICK" ("$bKICK$b <groupname> <account>",
+        "Removes an account from the group. Requires admin flag. Cannot kick the founder.");
+"FLAGS" ("$bFLAGS$b <groupname> [account] [+/-flags]",
+         "Without account: lists all members with their flags.",
+         "With account and flags: sets flags for that member.",
+         "Flags: F=Founder (cannot be changed), A=Admin (can invite/kick/flags)");
+"SET" ("$bSET$b <groupname> <option> <value>",
+       "Configure group options. Founder only.",
+       "  OPEN <ON|OFF>        Allow anyone to JOIN",
+       "  DESCRIPTION <text>   Set group description",
+       "  URL <url>            Set group URL");
+"INFO" ("$bINFO$b <groupname>",
+        "Displays group details: founder, member count, flags, description, URL, and full member list.");
+"LIST" ("$bLIST$b [pattern]",
+        "Lists groups matching the pattern (wildcards allowed). Without pattern, lists all groups.");

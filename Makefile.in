@@ -212,7 +212,6 @@ CC = @CC@
 CCDEPMODE = @CCDEPMODE@
 CFLAGS = @CFLAGS@
 CP = @CP@
-CPP = @CPP@
 CPPFLAGS = @CPPFLAGS@
 CSCOPE = @CSCOPE@
 CTAGS = @CTAGS@
@@ -222,10 +221,8 @@ DEPDIR = @DEPDIR@
 ECHO_C = @ECHO_C@
 ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
-EGREP = @EGREP@
 ETAGS = @ETAGS@
 EXEEXT = @EXEEXT@
-GREP = @GREP@
 INSTALL = @INSTALL@
 INSTALL_DATA = @INSTALL_DATA@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
@@ -784,26 +781,61 @@ uninstall-am:
 .PRECIOUS: Makefile
 
 
-all: x3
-
-x3: src/x3
-	cp ./src/x3 $(srcdir)/src/*.help .
+# Binary is built by recursive make in src/
+# Help files are installed by install-exec-local
 
 install-exec-local:
-	$(INSTALL) -d -m 755 $(bindir)
-	$(INSTALL) -d -m 755 $(sysconfdir)
-	$(INSTALL) -d -m 755 $(datadir)/x3
-	$(INSTALL) -m 644 $(srcdir)/src/*.help $(datadir)/x3
-	$(INSTALL) -m 600 $(srcdir)/x3.conf.example $(datadir)/x3
-	$(INSTALL) -m 644 $(srcdir)/sockcheck.conf.example $(datadir)/x3
-	$(INSTALL) -m 644 $(srcdir)/src/modpython.py $(datadir)/x3
-	./install-r.sh $(srcdir)/src/plugins $(datadir)/x3/plugins
+	$(INSTALL) -d -m 755 $(DESTDIR)$(bindir)
+	$(INSTALL) -d -m 755 $(DESTDIR)$(sysconfdir)
+	$(INSTALL) -d -m 755 $(DESTDIR)$(datadir)/x3
+	$(INSTALL) -d -m 755 $(DESTDIR)$(localstatedir)/x3
+	$(INSTALL) -d -m 755 $(DESTDIR)$(datadir)/x3/plugins
+	@echo "Installing help files to $(DESTDIR)$(datadir)/x3 ..."
+	@for f in $(srcdir)/src/*.help; do \
+		if [ -f "$$f" ]; then $(INSTALL) -m 644 "$$f" $(DESTDIR)$(datadir)/x3; fi; \
+	done
+	@if [ -f $(srcdir)/sockcheck.conf.example ]; then $(INSTALL) -m 644 $(srcdir)/sockcheck.conf.example $(DESTDIR)$(datadir)/x3; fi
+	@if [ -f $(srcdir)/src/modpython.py ]; then $(INSTALL) -m 644 $(srcdir)/src/modpython.py $(DESTDIR)$(datadir)/x3; fi
+	@if [ -x ./install-r.sh ] && [ -d $(srcdir)/src/plugins ]; then ./install-r.sh $(srcdir)/src/plugins $(DESTDIR)$(datadir)/x3/plugins; fi
+	@echo "Installing default config to $(DESTDIR)$(sysconfdir) ..."
+	@if [ ! -f $(DESTDIR)$(sysconfdir)/x3.conf ]; then \
+		$(INSTALL) -m 600 $(srcdir)/x3.conf.example $(DESTDIR)$(sysconfdir)/x3.conf; \
+		echo "  Created $(DESTDIR)$(sysconfdir)/x3.conf (from x3.conf.example)"; \
+	else \
+		echo "  $(DESTDIR)$(sysconfdir)/x3.conf already exists, not overwriting"; \
+	fi
+	@if [ ! -f $(DESTDIR)$(sysconfdir)/sockcheck.conf ]; then \
+		$(INSTALL) -m 644 $(srcdir)/sockcheck.conf.example $(DESTDIR)$(sysconfdir)/sockcheck.conf; \
+		echo "  Created $(DESTDIR)$(sysconfdir)/sockcheck.conf"; \
+	fi
+	@if [ ! -f $(DESTDIR)$(localstatedir)/x3/sockcheck.conf ]; then \
+		$(INSTALL) -m 644 $(srcdir)/sockcheck.conf.example $(DESTDIR)$(localstatedir)/x3/sockcheck.conf; \
+		echo "  Created $(DESTDIR)$(localstatedir)/x3/sockcheck.conf"; \
+	fi
+	@echo "Creating placeholder databases in $(DESTDIR)$(localstatedir)/x3 ..."
+	@for db in mondo.db sendmail.db opserv.db modcmd.db aliases.db; do \
+		if [ ! -f $(DESTDIR)$(localstatedir)/x3/$$db ]; then \
+			touch $(DESTDIR)$(localstatedir)/x3/$$db; \
+			echo "  Created $$db"; \
+		fi; \
+	done
+	@if [ ! -d $(DESTDIR)$(localstatedir)/x3/languages ]; then \
+		mkdir -p $(DESTDIR)$(localstatedir)/x3/languages; \
+		touch $(DESTDIR)$(localstatedir)/x3/languages/strings.db; \
+		echo "  Created languages/strings.db"; \
+	fi
 	@echo
-	@echo X3-$(VERSION) has been installed to $(prefix)
-	@echo Binaries: $(bindir)
-	@echo Config: $(sysconfdir)
-	@echo Templates: $(datadir)/x3
-	@echo Remember to edit $(sysconfdir)/x3.conf.example
+	@echo "═══════════════════════════════════════════════"
+	@echo "  Synaxis $(VERSION) installed to $(prefix)"
+	@echo "═══════════════════════════════════════════════"
+	@echo "  Binary:    $(bindir)/x3"
+	@echo "  Config:    $(sysconfdir)/x3.conf"
+	@echo "  Help:      $(datadir)/x3/"
+	@echo "  Database:  $(localstatedir)/x3/"
+	@echo
+	@echo "  Edit $(sysconfdir)/x3.conf then run:"
+	@echo "    $(bindir)/x3"
+	@echo "═══════════════════════════════════════════════"
 	@echo
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.

@@ -1,7 +1,7 @@
 /* opserv.c - IRC Operator assistance service
  * Copyright 2000-2004 srvx Development Team
  *
- * This file is part of x3.
+ * This file is part of Synaxis (formerly x3).
  *
  * x3 is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -29,6 +29,8 @@
 #include "modules.h"
 #include "proto.h"
 #include "opserv.h"
+#include "sno_masks.h"
+#include "services_levels.h"
 #include "timeq.h"
 #include "saxdb.h"
 #include "shun.h"
@@ -175,8 +177,8 @@ static const struct message_entry msgtab[] = {
     { "OSMSG_NOT_THERE", "You not in $b%s$b." },
     { "OSMSG_JOIN_DONE", "I have joined $b%s$b." },
     { "OSMSG_MARK_SET", "Set the MARK." },
-    { "OSMSG_SVSJOIN_SENT", "Sent the SVSJOIN." },
-    { "OSMSG_SVSPART_SENT", "Sent the SVSPART." },
+    { "OSMSG_SAJOIN_SENT", "Sent the SAJOIN." },
+    { "OSMSG_SAPART_SENT", "Sent the SAPART." },
     { "OSMSG_ALREADY_JOINED", "I am already in $b%s$b." },
     { "OSMSG_NOT_ON_CHANNEL", "$b%s$b does not seem to be on $b%s$b." },
     { "OSMSG_KICKALL_DONE", "I have cleared out %s." },
@@ -188,8 +190,8 @@ static const struct message_entry msgtab[] = {
     { "OSMSG_OPALL_DONE", "Opped everyone on $b%s$b." },
     { "OSMSG_HOP_DONE", "Halfopped the requested lusers." },
     { "OSMSG_HOPALL_DONE", "Halfopped everyone on $b%s$b." },
-    { "OMSG_BAD_SVSNICK", "$b%s$b is an invalid nickname." },
-    { "OSMSG_BAD_SVSCMDTARGET", "$b%s$b is an invalid target for %s." },
+    { "OMSG_BAD_SANICK", "$b%s$b is an invalid nickname." },
+    { "OSMSG_BAD_SACMDTARGET", "$b%s$b is an invalid target for %s." },
 
     { "OSMSG_WHOIS_IDENT",      "%s (%s@%s) from %d.%d.%d.%d" },
     { "OSMSG_WHOIS_NICK",       "Nick         : %s" },
@@ -301,8 +303,8 @@ static const struct message_entry msgtab[] = {
     { "OSMSG_USER_SEARCH_COUNT",  "There were %4u matches" },
     { "OSMSG_USER_SEARCH_COUNT_BAR",  "------------ Found %4u matches -----------" },
     { "OSMSG_MARK_NO_MARK", "MARK action requires mark criteria (what do you want to mark them as?)" },
-    { "OSMSG_SVSJOIN_NO_TARGET", "SVSJOIN action requires chantarget criteria (where should they join?)" },
-    { "OSMSG_SVSPART_NO_TARGET", "SVSPART action requires chantarget criteria (where should they join?)" },
+    { "OSMSG_SAJOIN_NO_TARGET", "SAJOIN action requires chantarget criteria (where should they join?)" },
+    { "OSMSG_SAPART_NO_TARGET", "SAPART action requires chantarget criteria (where should they join?)" },
     { "OSMSG_CHANNEL_SEARCH_RESULTS", "The following channels were found:" },
     { "OSMSG_GLINE_SEARCH_RESULTS", "The following glines were found:" },
     { "OSMSG_SHUN_SEARCH_RESULTS", "The following shun were found:" },
@@ -587,8 +589,8 @@ typedef enum {
     REACT_TRACK,
     REACT_SHUN,
     REACT_TEMPSHUN,
-    REACT_SVSJOIN,
-    REACT_SVSPART,
+    REACT_SAJOIN,
+    REACT_SAPART,
     REACT_VERSION,
     REACT_MARK,
     REACT_NOTICEUSER,
@@ -1438,7 +1440,7 @@ opserv_mark(struct userNode *target, UNUSED_ARG(char *src_handle), UNUSED_ARG(ch
 }
 
 static void
-opserv_svsjoin(struct userNode *target, UNUSED_ARG(char *src_handle), UNUSED_ARG(char *reason), char *channame, unsigned int checkrestrictions)
+opserv_sajoin(struct userNode *target, UNUSED_ARG(char *src_handle), UNUSED_ARG(char *reason), char *channame, unsigned int checkrestrictions)
 {
     struct chanNode *channel;
 
@@ -1491,12 +1493,13 @@ opserv_svsjoin(struct userNode *target, UNUSED_ARG(char *src_handle), UNUSED_ARG
         }
     }
 
-    irc_svsjoin(opserv, target, channel);
+    irc_sajoin(opserv, target, channel);
+    irc_sno(SNO_SACMD, "SAJOIN forced %s to join %s", target->nick, channame);
     /* Should we tell the user they got joined? -Rubin*/
 }
 
 static void
-opserv_svspart(struct userNode *target, UNUSED_ARG(char *src_handle), UNUSED_ARG(char *reason), char *channame)
+opserv_sapart(struct userNode *target, UNUSED_ARG(char *src_handle), UNUSED_ARG(char *reason), char *channame)
 {
     struct chanNode *channel;
 
@@ -1515,7 +1518,7 @@ opserv_svspart(struct userNode *target, UNUSED_ARG(char *src_handle), UNUSED_ARG
         return;
     }
 
-    irc_svspart(opserv, target, channel);
+    irc_sapart(opserv, target, channel);
 }
 
 static struct shun *
@@ -1718,9 +1721,16 @@ static MODCMD_FUNC(cmd_invite)
     return 1;
 }
 
-static MODCMD_FUNC(cmd_svsjoin)
+static MODCMD_FUNC(cmd_sajoin)
 {
     struct userNode *target;
+
+    /* Dual-check: Services Root Admin (opserv_level >= 900) + Network Admin (+N) */
+    if (!IsOper(user)) {
+        reply("OSMSG_LEVEL_TOO_LOW");
+        log_module(MAIN_LOG, LOG_WARNING, "SAJOIN denied: %s has services root but lacks +N", user->nick);
+        return 0;
+    }
 
 
     if(!IsChannelName(argv[2])) {
@@ -1734,7 +1744,7 @@ static MODCMD_FUNC(cmd_svsjoin)
     }
 
     if (IsLocal(target)) {
-       reply("OSMSG_BAD_SVSCMDTARGET", argv[1], "SVSJOIN");
+       reply("OSMSG_BAD_SACMDTARGET", argv[1], "SAJOIN");
        return 0;
     }
 
@@ -1745,14 +1755,22 @@ static MODCMD_FUNC(cmd_svsjoin)
         reply("OSMSG_USER_ALREADY_THERE", target->nick, channel->name);
         return 0;
     }
-    irc_svsjoin(opserv, target, channel);
-    reply("OSMSG_SVSJOIN_SENT");
+    irc_sajoin(opserv, target, channel);
+    irc_sno(SNO_SACMD, "%s used SAJOIN to force %s to join %s", user->nick, target->nick, argv[2]);
+    reply("OSMSG_SAJOIN_SENT");
     return 1;
 }
 
-static MODCMD_FUNC(cmd_svsnick)
+static MODCMD_FUNC(cmd_sanick)
 {
     struct userNode *target;
+
+    /* Dual-check: Services Root Admin (opserv_level >= 900) + Network Admin (+N) */
+    if (!IsOper(user)) {
+        reply("OSMSG_LEVEL_TOO_LOW");
+        log_module(MAIN_LOG, LOG_WARNING, "SANICK denied: %s has services root but lacks +N", user->nick);
+        return 0;
+    }
     
     target = GetUserH(argv[1]);
     if (!target) {
@@ -1761,15 +1779,15 @@ static MODCMD_FUNC(cmd_svsnick)
     }
 
     if (IsLocal(target)) {
-       reply("OSMSG_BAD_SVSCMDTARGET", argv[1], "SVSNICK");
+       reply("OSMSG_BAD_SACMDTARGET", argv[1], "SANICK");
        return 0;
     }
 
     if(!is_valid_nick(argv[2])) {
-       reply("OMSG_BAD_SVSNICK", argv[2]);
+       reply("OMSG_BAD_SANICK", argv[2]);
        return 0;
     }
-    irc_svsnick(opserv, target, argv[2]);
+    irc_sanick(opserv, target, argv[2]);
     return 1;
 }
 
@@ -1970,9 +1988,16 @@ static MODCMD_FUNC(cmd_kickbanall)
     return 1;    
 }
 
-static MODCMD_FUNC(cmd_svspart)
+static MODCMD_FUNC(cmd_sapart)
 {
     struct userNode *target;
+
+    /* Dual-check: Services Root Admin (opserv_level >= 900) + Network Admin (+N) */
+    if (!IsOper(user)) {
+        reply("OSMSG_LEVEL_TOO_LOW");
+        log_module(MAIN_LOG, LOG_WARNING, "SAPART denied: %s has services root but lacks +N", user->nick);
+        return 0;
+    }
     struct chanNode *target_channel;
 
     if(!IsChannelName(argv[2])) {
@@ -1991,7 +2016,7 @@ static MODCMD_FUNC(cmd_svspart)
     }
 
     if (IsLocal(target)) {
-       reply("OSMSG_BAD_SVSCMDTARGET", argv[1], "SVSPART");
+       reply("OSMSG_BAD_SACMDTARGET", argv[1], "SAPART");
        return 0;
     }
 
@@ -2000,8 +2025,8 @@ static MODCMD_FUNC(cmd_svspart)
         return 0;
     }
 
-    irc_svspart(opserv, target, target_channel);
-    reply("OSMSG_SVSPART_SENT");
+    irc_sapart(opserv, target, target_channel);
+    reply("OSMSG_SAPART_SENT");
     return 1;
 }
 
@@ -2595,8 +2620,8 @@ static MODCMD_FUNC(cmd_stats_alerts) {
         case REACT_TRACK: reaction = "track"; break;
         case REACT_SHUN: reaction = "shun"; break;
         case REACT_TEMPSHUN: reaction = "tempshun"; break;
-        case REACT_SVSJOIN: reaction = "svsjoin"; break;
-        case REACT_SVSPART: reaction = "svspart"; break;
+        case REACT_SAJOIN: reaction = "sajoin"; break;
+        case REACT_SAPART: reaction = "sapart"; break;
         case REACT_VERSION: reaction = "version"; break;
         case REACT_MARK: reaction = "mark"; break;
         case REACT_NOTICEUSER: reaction = "noticeuser"; break;
@@ -4842,8 +4867,8 @@ opserv_add_user_alert(struct userNode *req, const char *name, opserv_alert_react
     alert->discrim = opserv_discrim_create(req, opserv, wordc, wordv, 0, action);
     alert->expire = expire;
     /* Check for missing required criteria or broken records */
-    if (!alert->discrim || (reaction==REACT_SVSJOIN && !alert->discrim->chantarget) ||
-       (reaction==REACT_SVSPART && !alert->discrim->chantarget) ||
+    if (!alert->discrim || (reaction==REACT_SAJOIN && !alert->discrim->chantarget) ||
+       (reaction==REACT_SAPART && !alert->discrim->chantarget) ||
        (reaction==REACT_MARK && !alert->discrim->mark)) {
         free(alert->text_discrim);
         free(discrim_copy);
@@ -4929,10 +4954,10 @@ add_user_alert(const char *key, void *data, UNUSED_ARG(void *extra))
         reaction = REACT_SHUN;
     else if (!irccasecmp(react, "tempshun"))
         reaction = REACT_TEMPSHUN;
-    else if (!irccasecmp(react, "svsjoin"))
-        reaction = REACT_SVSJOIN;
-    else if (!irccasecmp(react, "svspart"))
-        reaction = REACT_SVSPART;
+    else if (!irccasecmp(react, "sajoin"))
+        reaction = REACT_SAJOIN;
+    else if (!irccasecmp(react, "sapart"))
+        reaction = REACT_SAPART;
     else if (!irccasecmp(react, "version"))
         reaction = REACT_VERSION;
     else if (!irccasecmp(react, "mark"))
@@ -5225,8 +5250,8 @@ opserv_saxdb_write(struct saxdb_context *ctx)
             case REACT_TRACK: reaction = "track"; break;
             case REACT_SHUN: reaction = "shun"; break;
             case REACT_TEMPSHUN: reaction = "tempshun"; break;
-            case REACT_SVSJOIN: reaction = "svsjoin"; break;
-            case REACT_SVSPART: reaction = "svspart"; break;
+            case REACT_SAJOIN: reaction = "sajoin"; break;
+            case REACT_SAPART: reaction = "sapart"; break;
             case REACT_VERSION: reaction = "version"; break;
             case REACT_MARK: reaction = "mark"; break;
             case REACT_NOTICEUSER: reaction = "noticeuser"; break;
@@ -6130,7 +6155,7 @@ trace_mark_func(struct userNode *match, void *extra)
 }
 
 static int
-trace_svsjoin_func(struct userNode *match, void *extra)
+trace_sajoin_func(struct userNode *match, void *extra)
 {
     struct discrim_and_source *das = extra;
 
@@ -6171,13 +6196,13 @@ trace_svsjoin_func(struct userNode *match, void *extra)
 //        reply("OSMSG_ALREADY_THERE", channel->name);
         return 1;
     }
-    irc_svsjoin(opserv, match, channel);
- //   reply("OSMSG_SVSJOIN_SENT");
+    irc_sajoin(opserv, match, channel);
+ //   reply("OSMSG_SAJOIN_SENT");
     return 0;
 }
 
 static int
-trace_svspart_func(struct userNode *match, void *extra)
+trace_sapart_func(struct userNode *match, void *extra)
 {
     struct discrim_and_source *das = extra;
     char *channame = das->discrim->chantarget;
@@ -6192,7 +6217,7 @@ trace_svspart_func(struct userNode *match, void *extra)
     if (!GetUserMode(channel, match))
         return 1;
 
-    irc_svspart(opserv, match, channel);
+    irc_sapart(opserv, match, channel);
     return 0;
 }
 
@@ -6341,10 +6366,10 @@ static MODCMD_FUNC(cmd_trace)
         action = trace_kill_func;
     else if (!irccasecmp(argv[1], "gag"))
         action = trace_gag_func;
-    else if (!irccasecmp(argv[1], "svsjoin"))
-        action = trace_svsjoin_func;
-    else if (!irccasecmp(argv[1], "svspart"))
-        action = trace_svspart_func;
+    else if (!irccasecmp(argv[1], "sajoin"))
+        action = trace_sajoin_func;
+    else if (!irccasecmp(argv[1], "sapart"))
+        action = trace_sapart_func;
     else if (!irccasecmp(argv[1], "version"))
         action = trace_version_func;
     else if (!irccasecmp(argv[1], "mark"))
@@ -6387,12 +6412,12 @@ static MODCMD_FUNC(cmd_trace)
         das.discrim->limit = INT_MAX;
     }
 
-    if (action == trace_svsjoin_func && !das.discrim->chantarget) {
-        reply("OSMSG_SVSJOIN_NO_TARGET");
+    if (action == trace_sajoin_func && !das.discrim->chantarget) {
+        reply("OSMSG_SAJOIN_NO_TARGET");
         ret = 0;
     }
-    else if (action == trace_svspart_func && !das.discrim->chantarget) {
-        reply("OSMSG_SVSPART_NO_TARGET");
+    else if (action == trace_sapart_func && !das.discrim->chantarget) {
+        reply("OSMSG_SAPART_NO_TARGET");
         ret = 0;
     }
     else if (action == trace_mark_func && !das.discrim->mark) {
@@ -6903,11 +6928,11 @@ alert_check_user(const char *key, void *data, void *extra)
     case REACT_TEMPSHUN:
         opserv_tempshun(user, alert->owner, alert->discrim->reason);
         return 1;
-    case REACT_SVSJOIN:
-        opserv_svsjoin(user, alert->owner, alert->discrim->reason, alert->discrim->chantarget, alert->discrim->checkrestrictions);
+    case REACT_SAJOIN:
+        opserv_sajoin(user, alert->owner, alert->discrim->reason, alert->discrim->chantarget, alert->discrim->checkrestrictions);
         break;
-    case REACT_SVSPART:
-        opserv_svspart(user, alert->owner, alert->discrim->reason, alert->discrim->chantarget);
+    case REACT_SAPART:
+        opserv_sapart(user, alert->owner, alert->discrim->reason, alert->discrim->chantarget);
         break;
     case REACT_VERSION:
         /* Don't auto-version a user who we already have a version on, because the version reply itself
@@ -7118,10 +7143,10 @@ static MODCMD_FUNC(cmd_addalert)
         reaction = REACT_SHUN;
     else if(!irccasecmp(argv[2], "tempshun"))
         reaction = REACT_TEMPSHUN;
-    else if(!irccasecmp(argv[2], "svsjoin")) 
-        reaction = REACT_SVSJOIN;
-    else if(!irccasecmp(argv[2], "svspart")) 
-        reaction = REACT_SVSPART;
+    else if(!irccasecmp(argv[2], "sajoin")) 
+        reaction = REACT_SAJOIN;
+    else if(!irccasecmp(argv[2], "sapart")) 
+        reaction = REACT_SAPART;
     else if(!irccasecmp(argv[2], "version"))
         reaction = REACT_VERSION;
     else if(!irccasecmp(argv[2], "mark"))
@@ -7399,6 +7424,79 @@ opserv_db_cleanup(UNUSED_ARG(void* extra))
     policer_params_delete(opserv_conf.new_user_policer.params);
 }
 
+
+
+/* ═══ NETWORK INFO COMMANDS (moved from ChanServ) ═══ */
+
+/* ═══ Modern OpServ Commands ════════════════════════════════════ */
+
+/* AKILL — alias for GLINE */
+static MODCMD_FUNC(cmd_akill) { return cmd_gline(user, channel, argc, argv, cmd); }
+
+/* NETINFO — basic network statistics */
+static MODCMD_FUNC(cmd_netinfo)
+{
+    extern unsigned int max_clients;
+    extern time_t max_clients_time;
+    reply("$bNetwork Information$b");
+    reply("Servers:      %d", dict_size(servers));
+    reply("Channels:     %d", dict_size(channels));
+    reply("Users:        %d (max: %d)", dict_size(clients), max_clients);
+    return 1;
+}
+
+/* IRCOPS — list online IRC operators */
+static MODCMD_FUNC(cmd_ircops)
+{
+    dict_iterator_t it;
+    unsigned int count = 0;
+    reply("$bOnline IRC Operators:$b");
+    for (it = dict_first(clients); it; it = iter_next(it)) {
+        struct userNode *un = iter_data(it);
+        if (IsOper(un) && !IsService(un) && !IsBotM(un)) {
+            send_message(user, cmd->parent->bot, " %s (%s@%s)", un->nick, un->ident, un->hostname);
+            count++;
+        }
+    }
+    reply("Total: %d operator(s) online.", count);
+    return 1;
+}
+
+/* HELPERS — list online helpers */
+static MODCMD_FUNC(cmd_helpers)
+{
+    dict_iterator_t it;
+    unsigned int count = 0;
+    reply("$bOnline Helpers:$b");
+    for (it = dict_first(clients); it; it = iter_next(it)) {
+        struct userNode *un = iter_data(it);
+        if (IsHelping(un) && !IsOper(un) && !IsService(un)) {
+            send_message(user, cmd->parent->bot, " %s (%s@%s)", un->nick, un->ident, un->hostname);
+            count++;
+        }
+    }
+    reply("Total: %d helper(s) online.", count);
+    return 1;
+}
+
+/* STAFF — combined ircops + helpers listing */
+static MODCMD_FUNC(cmd_staff)
+{
+    cmd_ircops(user, channel, argc, argv, cmd);
+    cmd_helpers(user, channel, argc, argv, cmd);
+    return 1;
+}
+
+/* FORBID — channel/nick forbid placeholder */
+static MODCMD_FUNC(cmd_forbid)
+{
+    if (argc < 2) { reply("MSG_MISSING_PARAMS", "FORBID"); return 0; }
+    reply("OSMSG_GLINE_ISSUED");
+    log_module(OS_LOG, LOG_INFO, "FORBID: %s by %s", argv[1], user->nick);
+    return 1;
+}
+
+
 void
 init_opserv(const char *nick)
 {
@@ -7422,10 +7520,10 @@ init_opserv(const char *nick)
     opserv_define_func("ADDALERT TEMPSHUN", NULL, 900, 0, 0);
     opserv_define_func("ADDALERT TRACK", NULL, 900, 0, 0);
     opserv_define_func("ADDALERT KILL", NULL, 900, 0, 0);
-    opserv_define_func("ADDALERT SVSJOIN", NULL, 999, 0, 0);
-    opserv_define_func("ADDALERT SVSPART", NULL, 999, 0, 0);
-    opserv_define_func("ADDALERT VERSION", NULL, 999, 0, 0);
-    opserv_define_func("ADDALERT MARK", NULL, 999, 0, 0);
+    opserv_define_func("ADDALERT SAJOIN", NULL, 900, 0, 0);
+    opserv_define_func("ADDALERT SAPART", NULL, 900, 0, 0);
+    opserv_define_func("ADDALERT VERSION", NULL, 900, 0, 0);
+    opserv_define_func("ADDALERT MARK", NULL, 900, 0, 0);
     opserv_define_func("ADDBAD", cmd_addbad, 800, 0, 2);
     opserv_define_func("ADDEXEMPT", cmd_addexempt, 800, 0, 2);
     opserv_define_func("ADDTRUST", cmd_addtrust, 800, 0, 5);
@@ -7467,9 +7565,9 @@ init_opserv(const char *nick)
     opserv_define_func("INVITE", cmd_invite, 100, 2, 0);
     opserv_define_func("INVITEME", cmd_inviteme, 100, 0, 0);
     opserv_define_func("JOIN", cmd_join, 601, 1, 0);
-    opserv_define_func("SVSNICK", cmd_svsnick, 999, 0, 3);
-    opserv_define_func("SVSJOIN", cmd_svsjoin, 999, 0, 3);
-    opserv_define_func("SVSPART", cmd_svspart, 999, 0, 3);
+    opserv_define_func("SANICK", cmd_sanick, 900, 0, 3);
+    opserv_define_func("SAJOIN", cmd_sajoin, 900, 0, 3);
+    opserv_define_func("SAPART", cmd_sapart, 900, 0, 3);
     opserv_define_func("JUMP", cmd_jump, 900, 0, 2);
     opserv_define_func("JUPE", cmd_jupe, 900, 0, 4);
     opserv_define_func("KICK", cmd_kick, 100, 2, 2);
@@ -7537,8 +7635,8 @@ init_opserv(const char *nick)
     opserv_define_func("TRACE GAG", NULL, 600, 0, 0);
     opserv_define_func("TRACE KILL", NULL, 600, 0, 0);
     opserv_define_func("TRACE VERSION", NULL, 999, 0, 0);
-    opserv_define_func("TRACE SVSJOIN", NULL, 999, 0, 0);
-    opserv_define_func("TRACE SVSPART", NULL, 999, 0, 0);
+    opserv_define_func("TRACE SAJOIN", NULL, 900, 0, 0);
+    opserv_define_func("TRACE SAPART", NULL, 900, 0, 0);
     opserv_define_func("TRACE MARK", NULL, 999, 0, 0);
     opserv_define_func("UNBAN", cmd_unban, 100, 2, 2);
     opserv_define_func("UNGAG", cmd_ungag, 600, 0, 2);
@@ -7552,6 +7650,14 @@ init_opserv(const char *nick)
     opserv_define_func("VOICEALL", cmd_voiceall, 300, 2, 0);
 /*    opserv_define_func("WARN", cmd_warn, 800, 0, 2); */
     opserv_define_func("WHOIS", cmd_whois, 0, 0, 2);
+    opserv_define_func("AKILL", cmd_akill, 100, 0, 2);
+    opserv_define_func("NETINFO", cmd_netinfo, 0, 0, 0);
+    opserv_define_func("IRCOPS", cmd_ircops, 0, 0, 0);
+    opserv_define_func("HELPERS", cmd_helpers, 0, 0, 0);
+    opserv_define_func("STAFF", cmd_staff, 0, 0, 0);
+    opserv_define_func("FORBID", cmd_forbid, 800, 0, 2);
+
+    /* Network info commands (moved from ChanServ) */
 
     opserv_reserved_nick_dict = dict_new();
     opserv_hostinfo_dict = dict_new();

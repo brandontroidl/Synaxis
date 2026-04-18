@@ -1,7 +1,7 @@
 /* nickserv.h - Nick/authentiction service
  * Copyright 2000-2004 srvx Development Team
  *
- * This file is part of x3.
+ * This file is part of Synaxis (formerly x3).
  *
  * x3 is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -115,7 +115,7 @@ struct handle_info {
     unsigned char userlist_style;
     unsigned char announcements;
     unsigned char maxlogins;
-    char passwd[MD5_CRYPT_LENGTH+1];
+    char passwd[PASSWD_HASH_LENGTH+1];
     char last_quit_host[USERLEN+HOSTLEN+2];
 };
 
@@ -138,7 +138,7 @@ extern const char *handle_flags;
 enum reclaim_action {
     RECLAIM_NONE,
     RECLAIM_WARN,
-    RECLAIM_SVSNICK,
+    RECLAIM_SANICK,
     RECLAIM_KILL
 };
 

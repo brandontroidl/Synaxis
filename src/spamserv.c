@@ -20,6 +20,7 @@
 
 #include "conf.h"
 #include "spamserv.h"
+#include "sno_masks.h"
 #include "chanserv.h"
 #include "helpfile.h"
 #include "global.h"
@@ -2587,7 +2588,9 @@ spamserv_punish(struct chanNode *channel, struct userNode *user, time_t expires,
 	else
 		spamserv_debug(SSMSG_DEBUG_KICK, user->nick, channel->name, reason);
 
-	KickChannelUser(user, channel, spamserv, reason);	
+	KickChannelUser(user, channel, spamserv, reason);
+	irc_sno(SNO_SPAMF, "SPAMSERV: Punished %s in %s: %s%s",
+	        user->nick, channel->name, reason, ban ? " (banned)" : "");
 }
 
 void
@@ -2899,11 +2902,15 @@ spamserv_channel_message(struct chanNode *channel, struct userNode *user, char *
 		snprintf(mask, size, "*@%s", user->hostname);
 		gline_add(spamserv->nick, mask, spamserv_conf.gline_duration, reason, now, 1, 0);
 		spamserv_debug(SSMSG_DEBUG_GLINE, user->nick, user->hostname, channel->name);
+		irc_sno(SNO_SPAMF, "SPAMSERV: G-lined %s (%s) from %s: %s",
+		        user->nick, mask, channel->name, reason);
 	}
 	else if(CHECK_KILL(uInfo))
 	{
 		DelUser(user, spamserv, 1, reason);
 		spamserv_debug(SSMSG_DEBUG_KILL, user->nick, channel->name);
+		irc_sno(SNO_SPAMF, "SPAMSERV: Killed %s from %s: %s",
+		        user->nick, channel->name, reason);
 	}
 	else if(CHECK_LONG_TBAN(uInfo))
 	{
@@ -3211,6 +3218,13 @@ spamserv_db_cleanup(UNUSED_ARG(void* extra))
 	dict_delete(spamserv_trusted_accounts);
 }
 
+
+/* STATS — Show spam detection statistics */
+static MODCMD_FUNC(cmd_ss_stats)
+{
+    send_message(user, spamserv, "SpamServ Statistics: monitoring %d channels", dict_size(registered_channels_dict));
+    return 1;
+}
 void
 init_spamserv(const char *nick)
 {
@@ -3292,6 +3306,7 @@ init_spamserv(const char *nick)
 	modcmd_register(spamserv_module, "SET JOINFLOODSCAN", opt_joinflood, 1, MODCMD_REQUIRE_AUTHED|MODCMD_REQUIRE_CHANNEL, NULL);
 	modcmd_register(spamserv_module, "SET CAPSMIN", opt_capsmin, 1, MODCMD_REQUIRE_AUTHED|MODCMD_REQUIRE_CHANNEL, NULL);
 	modcmd_register(spamserv_module, "SET CAPSPERCENT", opt_capspercent, 1, MODCMD_REQUIRE_AUTHED|MODCMD_REQUIRE_CHANNEL, NULL);
+	modcmd_register(spamserv_module, "STATS", cmd_ss_stats, 1, MODCMD_REQUIRE_AUTHED, NULL);
 
 	spamserv_service->trigger = spamserv_conf.trigger;
 

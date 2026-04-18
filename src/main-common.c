@@ -122,6 +122,16 @@ uplink_insert(const char *key, void *data, UNUSED_ARG(void *extra))
     uplink->state = DISCONNECTED;
     uplink->tries = 0;
 
+    /* TLS configuration */
+    str = database_get_data(rd->d.object, "ssl", RECDB_QSTRING);
+    uplink->ssl = str ? enabled_string(str) : 0;
+    uplink->ssl_certfile = database_get_data(rd->d.object, "ssl_certfile", RECDB_QSTRING);
+    uplink->ssl_keyfile = database_get_data(rd->d.object, "ssl_keyfile", RECDB_QSTRING);
+    uplink->ssl_cafile = database_get_data(rd->d.object, "ssl_cafile", RECDB_QSTRING);
+    uplink->ssl_fingerprint = database_get_data(rd->d.object, "ssl_fingerprint", RECDB_QSTRING);
+    if (uplink->ssl)
+        log_module(MAIN_LOG, LOG_INFO, "Uplink %s: TLS enabled", key);
+
     str = database_get_data(rd->d.object, "bind_address", RECDB_QSTRING);
     memset(&hints, 0, sizeof(hints));
     hints.ai_flags = AI_PASSIVE;
@@ -609,4 +619,8 @@ void main_shutdown(UNUSED_ARG(void *extra))
     policer_params_delete(luser_policer_params);
     if (replay_file)
         fclose(replay_file);
+
+    /* Clean up modern crypto subsystems */
+    pqcrypto_cleanup();
+    crypto_cleanup();
 }

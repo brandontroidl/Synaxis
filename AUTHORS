@@ -1,38 +1,22 @@
-                             X3 Development Team
+                        Synaxis IRC Services
+                         Development Credits
 
-Project Admin:
-Rubin:     <rubinlinux@gmail.com>
+Project Lead:
+Brandon Troidl <btroidl@gmail.com>
+  https://github.com/brandontroidl/Synaxis
 
-Coders:
-SiRVulcaN  <sirvulcan@sirvulcan.co.nz>
-reed       <reed@afternet.org>
+Synaxis is a modernized fork of X3/srvx for the Cathexis IRCd.
 
-You can find the team on irc.afternet.org #evilnet. and in project "evilnet" 
-on sourceforge. Bug reports, feature requests, criticism or praise are 
-welcome. We love feedback.
+──────────────────────────────────────────────────────────────
 
-------------------------------------------------------------------------------
+Original X3 Development Team:
+  Rubin       <rubinlinux@gmail.com>    (Project Admin)
+  SiRVulcaN   <sirvulcan@sirvulcan.co.nz>
+  reed        <reed@afternet.org>
 
-X3 is based on srvx and the work of the srvx Development Team:
+Original srvx Development Team:
+  Entrope     <entrope@users.sourceforge.net>  (Project Admin)
+  Michael Poole
 
-Project Admin:
-Entrope    <entrope@users.sourceforge.net>
-
-Coders:
-def        <def@vt.edu>
-Entrope    <entrope@users.sourceforge.net>
-Jedi       <jedi@turboflux.net>
-SailorFrag <sailorfrag@users.sourceforge.net>
-Zoot       <zoot@gamesurge.net>
-
-Code Contributors:
-Phooeybane <phooeybane@glined.org>
-Portal     <portal@vt.edu>
-
-Documentation:
-Phooeybane <phooeybane@glined.org>
-Seldon
-
-You can find the team on irc.gamesurge.net, in #srvx. Bug reports,
-feature requests, criticism or praise are welcome. We love feedback.
-Note: Please do not bother the srvx team with questions about X3.
+Synaxis is based on X3, which is based on srvx.
+Licensed under the GNU General Public License v3.

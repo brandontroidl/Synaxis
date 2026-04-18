@@ -3,38 +3,32 @@ FROM debian:12
 ENV GID=1234
 ENV UID=1234
 
-RUN DEBIAN_FRONTEND=noninteractive RUNLEVEL=1 apt-get update 
-RUN DEBIAN_FRONTEND=noninteractive RUNLEVEL=1 apt-get update && apt-get -y install build-essential libssl-dev autoconf2.69 automake1.11 flex byacc gawk git vim procps net-tools libtre5 libtre-dev libldap2-dev
+RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
+    apt-get -y install build-essential libssl-dev autoconf automake \
+    libtre-dev libgeoip-dev libsodium-dev libargon2-dev \
+    python3-dev gawk git procps net-tools && \
+    apt-get clean
 
-RUN mkdir -p /x3
-RUN mkdir -p /x3/x3src
-COPY . /x3/x3src
+RUN mkdir -p /synaxis/src /synaxis/services
+COPY . /synaxis/src
 
-RUN groupadd -g ${GID} x3
-RUN useradd -u ${UID} -g ${GID} x3
-RUN chown -R x3:x3 /x3
-USER x3
+RUN groupadd -g ${GID} synaxis && \
+    useradd -u ${UID} -g ${GID} synaxis && \
+    chown -R synaxis:synaxis /synaxis
 
-WORKDIR  /x3/x3src
+USER synaxis
+WORKDIR /synaxis/src
 
-#RUN ./autogen.sh
-RUN ./configure --prefix=/x3 --sysconfdir=/x3/data --localstatedir=/x3/data --enable-modules=snoop,memoserv,helpserv
+RUN autoreconf -fi && \
+    ./configure --prefix=/synaxis/services \
+      --enable-modules=blacklist,botserv,helpserv,hostserv,memoserv,\
+no,python,qserver,snoop,sockcheck,track,webtv && \
+    make -j$(nproc) && \
+    make install
 
-RUN make
-RUN make install
+WORKDIR /synaxis/services
+COPY docker/dockerentrypoint.sh /synaxis/dockerentrypoint.sh
+ENTRYPOINT ["/synaxis/dockerentrypoint.sh"]
+CMD ["./bin/x3", "-f"]
 
-USER root
-#Clean up build
-#RUN apt-get remove -y build-essential && apt-get autoremove -y
-#RUN apt-get clean
-RUN chown -R x3:x3 /x3/bin /x3/data
-
-USER x3
-
-#COPY docker/x3.conf-dist /x3/data/x3.conf-dist
-COPY docker/dockerentrypoint.sh /dockerentrypoint.sh
-
-ENTRYPOINT ["/dockerentrypoint.sh"]
-
-CMD ["/x3/bin/x3", "-c", "/x3/data/x3.conf", "-f", "-d"]
-
+EXPOSE 7702

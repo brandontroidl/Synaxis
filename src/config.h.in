@@ -93,6 +93,9 @@
 /* Define to 1 if you have the <ldap.h> header file. */
 #undef HAVE_LDAP_H
 
+/* Define if libargon2 is available */
+#undef HAVE_LIBARGON2
+
 /* Define to 1 if you have the `coredumper' library (-lcoredumper). */
 #undef HAVE_LIBCOREDUMPER
 
@@ -120,8 +123,14 @@
 /* Define to 1 if you have the `nsl' library (-lnsl). */
 #undef HAVE_LIBNSL
 
+/* Define if liboqs is available for post-quantum crypto */
+#undef HAVE_LIBOQS
+
 /* Define to 1 if you have the `socket' library (-lsocket). */
 #undef HAVE_LIBSOCKET
+
+/* Define if libsodium is available */
+#undef HAVE_LIBSODIUM
 
 /* Define to 1 if you have the `tre' library (-ltre). */
 #undef HAVE_LIBTRE

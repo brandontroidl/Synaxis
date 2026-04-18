@@ -1,7 +1,7 @@
 /* proto-p10.c - IRC protocol output
  * Copyright 2000-2004 srvx Development Team
  *
- * This file is part of x3.
+ * This file is part of Synaxis (formerly x3).
  *
  * x3 is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,6 +23,8 @@
 #include "hash.h"
 #include "helpfile.h"
 #include "proto-common.c"
+#include "sno_masks.h"
+#include "services_levels.h"
 #include "opserv.h"
 
 /* Full commands. */
@@ -100,11 +102,28 @@
 #define CMD_SQUERY              "SQUERY"
 #define CMD_SQUIT               "SQUIT"
 #define CMD_STATS               "STATS"
-#define CMD_SVSJOIN             "SVSJOIN"
-#define CMD_SVSNICK             "SVSNICK"
-#define CMD_SVSPART             "SVSPART"
-#define CMD_SVSQUIT             "SVSQUIT"
+#define CMD_SAJOIN             "SAJOIN"
+#define CMD_SANICK             "SANICK"
+#define CMD_SAPART             "SAPART"
+#define CMD_SAQUIT             "SAQUIT"
+#define CMD_SACYCLE             "SACYCLE"
+#define CMD_SAIDENT             "SAIDENT"
+#define CMD_SAINFO              "SAINFO"
+#define CMD_SAMODE              "SAMODE"
+#define CMD_SANOOP              "SANOOP"
+#define CMD_SATOPIC             "SATOPIC"
+#define CMD_SAWHOIS             "SAWHOIS"
 #define CMD_SWHOIS              "SWHOIS"
+#define CMD_FINGERPRINT         "FINGERPRINT"
+#define CMD_SETHOST             "SETHOST"
+#define CMD_SETNAME             "SETNAME"
+#define CMD_DLINE               "DLINE"
+#define CMD_CHECK               "CHECK"
+#define CMD_PROTOCTL            "PROTOCTL"
+#define CMD_ISNEF               "ISNEF"
+#define CMD_TAGMSG              "TAGMSG"
+#define CMD_STARTTLS            "STARTTLS"
+#define CMD_WATCH               "WATCH"
 #define CMD_TEMPSHUN            "TEMPSHUN"
 #define CMD_TIME                "TIME"
 #define CMD_TOPIC               "TOPIC"
@@ -119,7 +138,6 @@
 #define CMD_WALLHOPS            "WALLHOPS"
 #define CMD_WALLUSERS           "WALLUSERS"
 #define CMD_WALLVOICES          "WALLVOICES"
-#define CMD_WALLHOPS            "WALLHOPS"
 #define CMD_WHO                 "WHO"
 #define CMD_WHOIS               "WHOIS"
 #define CMD_WHOWAS              "WHOWAS"
@@ -187,7 +205,7 @@
 #define TOK_RPONG               "RO"
 #define TOK_SASL                "SASL"
 #define TOK_SERVER              "S"
-#define TOK_SERVLIST            "SERVSET"
+#define TOK_SERVLIST            "SERVLIST"
 #define TOK_SERVSET             "SERVSET"
 #define TOK_SET			"SET"
 #define TOK_SETTIME             "SE"
@@ -201,10 +219,10 @@
 #define TOK_SQUERY              "SQUERY"
 #define TOK_SQUIT               "SQ"
 #define TOK_STATS               "R"
-#define TOK_SVSJOIN             "SJ"
-#define TOK_SVSNICK             "SN"
-#define TOK_SVSPART             "SP"
-#define TOK_SVSQUIT             "SX"
+#define TOK_SAJOIN             "SJ"
+#define TOK_SANICK             "SN"
+#define TOK_SAPART             "SP"
+#define TOK_SAQUIT             "SX"
 #define TOK_SWHOIS              "SW"
 #define TOK_TEMPSHUN            "TS"
 #define TOK_TIME                "TI"
@@ -220,11 +238,27 @@
 #define TOK_WALLHOPS            "WH"
 #define TOK_WALLUSERS           "WU"
 #define TOK_WALLVOICES          "WV"
-#define TOK_WALLHOPS            "WH"
 #define TOK_WHO                 "H"
 #define TOK_WHOIS               "W"
 #define TOK_WHOWAS              "X"
 #define TOK_ZLINE		"ZL"
+#define TOK_SACYCLE             "SC"
+#define TOK_SAIDENT             "SID"
+#define TOK_SAINFO              "SI"
+#define TOK_SAMODE              "SM"
+#define TOK_SANOOP              "SO"
+#define TOK_SATOPIC             "ST"
+#define TOK_SAWHOIS             TOK_SWHOIS  /* alias — Cathexis renamed SWHOIS to SAWHOIS */
+#define TOK_FINGERPRINT         "FINGERPRINT"
+#define TOK_SETHOST             "SETHOST"
+#define TOK_SETNAME             "SETNAME"
+#define TOK_DLINE               "DLINE"
+#define TOK_CHECK               "CC"
+#define TOK_PROTOCTL            "PROTOCTL"
+#define TOK_ISNEF               "ISNEF"
+#define TOK_TAGMSG              "TAGMSG"
+#define TOK_STARTTLS            "STARTTLS"
+#define TOK_WATCH               "WATCH"
 
 /* Protocol messages; aliased to full commands or tokens depending
    on compile-time configuration. ircu prefers tokens WITH THE
@@ -311,10 +345,10 @@
 #define P10_SQUERY              TYPE(SQUERY)
 #define P10_SQUIT               TYPE(SQUIT)
 #define P10_STATS               TYPE(STATS)
-#define P10_SVSJOIN             TYPE(SVSJOIN)
-#define P10_SVSNICK             TYPE(SVSNICK)
-#define P10_SVSPART             TYPE(SVSPART)
-#define P10_SVSQUIT		TYPE(SVSQUIT)
+#define P10_SAJOIN             TYPE(SAJOIN)
+#define P10_SANICK             TYPE(SANICK)
+#define P10_SAPART             TYPE(SAPART)
+#define P10_SAQUIT		TYPE(SAQUIT)
 #define P10_SWHOIS              TYPE(SWHOIS)
 #define P10_TEMPSHUN            TYPE(TEMPSHUN)
 #define P10_TIME                TYPE(TIME)
@@ -334,6 +368,23 @@
 #define P10_WHOIS               TYPE(WHOIS)
 #define P10_WHOWAS              TYPE(WHOWAS)
 #define P10_ZLINE		TYPE(ZLINE)
+#define P10_SACYCLE             TYPE(SACYCLE)
+#define P10_SAIDENT             TYPE(SAIDENT)
+#define P10_SAINFO              TYPE(SAINFO)
+#define P10_SAMODE              TYPE(SAMODE)
+#define P10_SANOOP              TYPE(SANOOP)
+#define P10_SATOPIC             TYPE(SATOPIC)
+#define P10_SAWHOIS             TYPE(SAWHOIS)
+#define P10_FINGERPRINT         TYPE(FINGERPRINT)
+#define P10_SETHOST             TYPE(SETHOST)
+#define P10_SETNAME             TYPE(SETNAME)
+#define P10_DLINE               TYPE(DLINE)
+#define P10_CHECK               TYPE(CHECK)
+#define P10_PROTOCTL            TYPE(PROTOCTL)
+#define P10_ISNEF               TYPE(ISNEF)
+#define P10_TAGMSG              TYPE(TAGMSG)
+#define P10_STARTTLS            TYPE(STARTTLS)
+#define P10_WATCH               TYPE(WATCH)
 #define P10_EXEMPT		TYPE(EXEMPT)
 
 /* Servers claiming to have a boot or link time before PREHISTORY
@@ -754,14 +805,12 @@ irc_version_user(struct userNode *from, struct userNode *to)
     irc_privmsg_user(from, to, "\001VERSION\001");
 }
 
-void
-irc_eob(void)
+void irc_eob(void)
 {
     putsock("%s " P10_EOB, self->numeric);
 }
 
-void
-irc_eob_ack(void)
+void irc_eob_ack(void)
 {
     putsock("%s " P10_EOB_ACK, self->numeric);
 
@@ -825,6 +874,9 @@ irc_introduce(const char *passwd)
     self->self_burst = self->burst = 1;
     irc_pass(passwd);
     irc_server(self);
+    /* Activate per-message HMAC signing after PASS/SERVER are sent.
+     * All subsequent P10 lines (burst, EB, etc.) will be signed. */
+    s2s_hmac_activate(passwd);
     burst_length = 0;
     timeq_add(now + ping_freq, timed_send_ping, 0);
 }
@@ -901,6 +953,10 @@ irc_burst(struct chanNode *chan)
         if (mn->modes && (mn->modes != last_mode)) {
             last_mode = mn->modes;
             burst_line[pos++] = ':';
+            if (last_mode & MODE_OWNER)
+                burst_line[pos++] = 'q';
+            if (last_mode & MODE_PROTECT)
+                burst_line[pos++] = 'a';
             if (last_mode & MODE_CHANOP)
                 burst_line[pos++] = 'o';
             if (last_mode & MODE_HALFOP)
@@ -1047,21 +1103,21 @@ irc_join(struct userNode *who, struct chanNode *what)
 }
 
 void
-irc_svsjoin(struct userNode *from, struct userNode *who, struct chanNode *to)
+irc_sajoin(struct userNode *from, struct userNode *who, struct chanNode *to)
 {
-    putsock("%s " P10_SVSJOIN " %s %s "FMT_TIME_T, from->uplink->numeric, who->numeric, to->name, now);
+    putsock("%s " P10_SAJOIN " %s %s "FMT_TIME_T, from->uplink->numeric, who->numeric, to->name, now);
 }
 
 void
-irc_svspart(struct userNode *from, struct userNode *who, struct chanNode *to)
+irc_sapart(struct userNode *from, struct userNode *who, struct chanNode *to)
 {
-    putsock("%s " P10_SVSPART " %s %s", from->uplink->numeric, who->numeric, to->name);
+    putsock("%s " P10_SAPART " %s %s", from->uplink->numeric, who->numeric, to->name);
 }
 
 void
-irc_svsquit(struct userNode *from, struct userNode *who, char const *reason)
+irc_saquit(struct userNode *from, struct userNode *who, char const *reason)
 {
-    putsock("%s " P10_SVSQUIT " %s :%s", from->uplink->numeric, who->numeric, reason);
+    putsock("%s " P10_SAQUIT " %s :%s", from->uplink->numeric, who->numeric, reason);
 }
 
 void
@@ -1081,9 +1137,9 @@ irc_stats(struct userNode *from, struct server *target, char type)
 }
 
 void
-irc_svsnick(struct userNode *from, struct userNode *target, const char *newnick)
+irc_sanick(struct userNode *from, struct userNode *target, const char *newnick)
 {
-    putsock("%s " P10_SVSNICK " %s %s "FMT_TIME_T, from->uplink->numeric, target->numeric, newnick, now);
+    putsock("%s " P10_SANICK " %s %s "FMT_TIME_T, from->uplink->numeric, target->numeric, newnick, now);
 }
 
 void
@@ -1588,7 +1644,7 @@ static CMD_FUNC(cmd_join)
     return 1;
 }
 
-static CMD_FUNC(cmd_svsjoin)
+static CMD_FUNC(cmd_sajoin)
 {
     struct create_desc cd;
 
@@ -1961,7 +2017,7 @@ static CMD_FUNC(cmd_burst)
     if (!cData) {
         if (cNode->modes & MODE_REGISTERED) {
             irc_join(opserv, cNode);
-            irc_mode(opserv, cNode, "-z");
+            irc_mode(opserv, cNode, "-R");
             irc_part(opserv, cNode, "");
         }
     }
@@ -1973,7 +2029,15 @@ static CMD_FUNC(cmd_burst)
         if (sep == ':') {
             mode = 0;
             while ((sep = *end++)) {
-                if (sep == 'o') {
+                if (sep == 'q') {
+                    /* Cathexis +q (owner) */
+                    mode |= MODE_OWNER | MODE_CHANOP;
+                    oplevel = -1;
+                } else if (sep == 'a') {
+                    /* Cathexis +a (protect/admin) */
+                    mode |= MODE_PROTECT | MODE_CHANOP;
+                    oplevel = -1;
+                } else if (sep == 'o') {
                     mode |= MODE_CHANOP;
                     oplevel = -1;
                 } else if (sep == 'h') {
@@ -2176,8 +2240,11 @@ static CMD_FUNC(cmd_opmode)
         return 0;
     }
     if (!(un = GetUserH(origin))) {
-        log_module(MAIN_LOG, LOG_ERROR, "Unable to find user %s requesting OPMODE.", origin);
-        return 0;
+        /* Server-originated OPMODE (e.g., Acid LimitServ setting +l) —
+         * use chanserv as the mode source for internal bookkeeping */
+        un = chanserv ? chanserv : NULL;
+        if (!un) return 0;
+        return mod_chanmode(un, cn, argv+2, argc-2, MCP_ALLOW_OVB|MCP_FROM_SERVER);
     }
     if (!IsOper(un)) {
         log_module(MAIN_LOG, LOG_ERROR, "Non-privileged user %s using OPMODE.", un->nick);
@@ -2347,7 +2414,7 @@ static CMD_FUNC(cmd_kill)
     return 1;
 }
 
-static CMD_FUNC(cmd_svspart)
+static CMD_FUNC(cmd_sapart)
 {
     struct userNode *user;
 
@@ -2591,7 +2658,7 @@ static CMD_FUNC(cmd_shun)
         return 0;
 }
 
-static CMD_FUNC(cmd_svsnick)
+static CMD_FUNC(cmd_sanick)
 {
     struct userNode *target, *dest;
     if ((argc < 4)
@@ -2627,8 +2694,7 @@ parse_cleanup(UNUSED_ARG(void *extra))
     userList_clean(&dead_users);
 }
 
-static void
-p10_conf_reload(void) {
+static void p10_conf_reload(void) {
     hidden_host_suffix = conf_get_data("server/hidden_host", RECDB_QSTRING);
     his_servername = conf_get_data("server/his_servername", RECDB_QSTRING);
     his_servercomment = conf_get_data("server/his_servercomment", RECDB_QSTRING);
@@ -2640,8 +2706,141 @@ remove_unbursted_channel(struct chanNode *cNode, UNUSED_ARG(void *extra)) {
         dict_remove(unbursted_channels, cNode->name);
 }
 
-void
-init_parse(void)
+/*
+ * Cathexis SA command handlers — replace cmd_dummy for SA* tokens.
+ * See src/cathexis_sa_handlers.c for full documentation.
+ */
+
+/* SACYCLE/SC — Force part+rejoin a channel */
+static CMD_FUNC(cmd_sacycle)
+{
+    struct userNode *target;
+    struct chanNode *cn;
+    if (argc < 3) return 0;
+    target = GetUserN(argv[1]);
+    if (!target) return 0;
+    cn = GetChannel(argv[2]);
+    if (!cn) return 0;
+    /* Remove and re-add the user to the channel. */
+    if (GetUserMode(cn, target)) {
+        DelChannelUser(target, cn, "Cycling", 0);
+        AddChannelUser(target, cn);
+    }
+    log_module(MAIN_LOG, LOG_DEBUG, "SACYCLE: %s cycled in %s",
+               target->nick, cn->name);
+    return 1;
+}
+
+/* SAIDENT/SID — Force ident change */
+static CMD_FUNC(cmd_saident)
+{
+    struct userNode *target;
+    if (argc < 3) return 0;
+    target = GetUserN(argv[1]);
+    if (!target) return 0;
+    strncpy(target->ident, argv[2], sizeof(target->ident) - 1);
+    target->ident[sizeof(target->ident) - 1] = '\0';
+    log_module(MAIN_LOG, LOG_DEBUG, "SAIDENT: %s ident changed to %s",
+               target->nick, argv[2]);
+    return 1;
+}
+
+/* SAINFO/SI — Force GECOS/realname change */
+static CMD_FUNC(cmd_sainfo)
+{
+    struct userNode *target;
+    if (argc < 3) return 0;
+    target = GetUserN(argv[1]);
+    if (!target) return 0;
+    strncpy(target->info, argv[argc - 1], sizeof(target->info) - 1);
+    target->info[sizeof(target->info) - 1] = '\0';
+    log_module(MAIN_LOG, LOG_DEBUG, "SAINFO: %s realname changed to %s",
+               target->nick, target->info);
+    return 1;
+}
+
+/* SATOPIC/ST — Force topic change */
+static CMD_FUNC(cmd_satopic)
+{
+    struct chanNode *cn;
+    if (argc < 3) return 0;
+    cn = GetChannel(argv[1]);
+    if (!cn) return 0;
+    SetChannelTopic(cn, NULL, NULL, argv[argc - 1], 0);
+    log_module(MAIN_LOG, LOG_DEBUG, "SATOPIC: %s topic set by %s",
+               cn->name, origin);
+    return 1;
+}
+
+/* SAMODE/SM — Forced mode change (reuses OPMODE infrastructure) */
+static CMD_FUNC(cmd_samode)
+{
+    struct chanNode *cn;
+    struct mod_chanmode *change;
+    if (argc < 3) return 0;
+    if (argv[1][0] == '#') {
+        cn = GetChannel(argv[1]);
+        if (!cn) return 0;
+        change = mod_chanmode_parse(cn, argv + 2, argc - 2,
+                                    MCP_FROM_SERVER | MCP_ALLOW_OVB, 0);
+        if (!change) return 0;
+        change->argc = 0;
+        mod_chanmode_announce(NULL, cn, change);
+        mod_chanmode_free(change);
+    }
+    return 1;
+}
+
+/* SANOOP/SO — Force remove all opers on a server */
+static CMD_FUNC(cmd_sanoop)
+{
+    if (argc < 3) return 0;
+    log_module(MAIN_LOG, LOG_DEBUG, "SANOOP from %s for %s (stub)", origin, argv[1]);
+    return 1;
+}
+
+/* SETHOST — User self-host change */
+static CMD_FUNC(cmd_sethost)
+{
+    struct userNode *un;
+    if (argc < 2) return 0;
+    un = GetUserH(origin);
+    if (!un) return 0;
+    strncpy(un->hostname, argv[1], sizeof(un->hostname) - 1);
+    un->hostname[sizeof(un->hostname) - 1] = '\0';
+    log_module(MAIN_LOG, LOG_DEBUG, "SETHOST: %s -> %s", un->nick, argv[1]);
+    return 1;
+}
+
+/* FINGERPRINT — TLS cert fingerprint notification */
+static CMD_FUNC(cmd_fingerprint)
+{
+    struct userNode *un;
+    if (argc < 3) return 0;
+    un = GetUserN(argv[1]);
+    if (!un) return 0;
+    strncpy(un->crypthost, argv[2], sizeof(un->crypthost) - 1);
+    un->crypthost[sizeof(un->crypthost) - 1] = '\0';
+    log_module(MAIN_LOG, LOG_DEBUG, "FINGERPRINT: %s -> %.16s...",
+               un->nick, argv[2]);
+    call_account_func(un, NULL);
+    return 1;
+}
+
+/* SETNAME — IRCv3 GECOS change */
+static CMD_FUNC(cmd_setname)
+{
+    struct userNode *un;
+    if (argc < 2) return 0;
+    un = GetUserH(origin);
+    if (!un) return 0;
+    strncpy(un->info, argv[argc - 1], sizeof(un->info) - 1);
+    un->info[sizeof(un->info) - 1] = '\0';
+    log_module(MAIN_LOG, LOG_DEBUG, "SETNAME: %s -> %s", un->nick, un->info);
+    return 1;
+}
+
+void init_parse(void)
 {
     const char *str, *desc;
     int numnick, usermask, max_users;
@@ -2733,14 +2932,16 @@ init_parse(void)
     dict_insert(irc_func_dict, TOK_NOTICE, cmd_notice);
     dict_insert(irc_func_dict, CMD_STATS, cmd_stats);
     dict_insert(irc_func_dict, TOK_STATS, cmd_stats);
-    dict_insert(irc_func_dict, CMD_SVSJOIN, cmd_svsjoin);
-    dict_insert(irc_func_dict, TOK_SVSJOIN, cmd_svsjoin);
-    dict_insert(irc_func_dict, CMD_SVSNICK, cmd_svsnick);
-    dict_insert(irc_func_dict, TOK_SVSNICK, cmd_svsnick);
-    dict_insert(irc_func_dict, CMD_SVSPART, cmd_svspart);
-    dict_insert(irc_func_dict, TOK_SVSPART, cmd_svspart);
+    dict_insert(irc_func_dict, CMD_SAJOIN, cmd_sajoin);
+    dict_insert(irc_func_dict, TOK_SAJOIN, cmd_sajoin);
+    dict_insert(irc_func_dict, CMD_SANICK, cmd_sanick);
+    dict_insert(irc_func_dict, TOK_SANICK, cmd_sanick);
+    dict_insert(irc_func_dict, CMD_SAPART, cmd_sapart);
+    dict_insert(irc_func_dict, TOK_SAPART, cmd_sapart);
     dict_insert(irc_func_dict, CMD_SWHOIS, cmd_dummy);
     dict_insert(irc_func_dict, TOK_SWHOIS, cmd_dummy);
+    /* SAWHOIS is the Cathexis rename of SWHOIS — same token SW */
+    dict_insert(irc_func_dict, CMD_SAWHOIS, cmd_dummy);
     dict_insert(irc_func_dict, CMD_TEMPSHUN, cmd_dummy);
     dict_insert(irc_func_dict, TOK_TEMPSHUN, cmd_dummy);
     dict_insert(irc_func_dict, CMD_WHOIS, cmd_whois);
@@ -2796,8 +2997,6 @@ init_parse(void)
     /* Ignore opers being silly. */
     dict_insert(irc_func_dict, CMD_WALLOPS, cmd_dummy);
     dict_insert(irc_func_dict, TOK_WALLOPS, cmd_dummy);
-    dict_insert(irc_func_dict, CMD_WALLHOPS, cmd_dummy);
-    dict_insert(irc_func_dict, TOK_WALLHOPS, cmd_dummy);
     dict_insert(irc_func_dict, TOK_WALLUSERS, cmd_dummy);
     /* Ignore dnsbl exemptions */
     dict_insert(irc_func_dict, TOK_EXEMPT, cmd_dummy);
@@ -2824,6 +3023,42 @@ init_parse(void)
     dict_insert(irc_func_dict, TOK_TRACE, cmd_dummy);
     dict_insert(irc_func_dict, TOK_MOTD, cmd_dummy);
     dict_insert(irc_func_dict, TOK_UPING, cmd_dummy);
+
+    /* Cathexis-specific commands — synchronized with Cathexis msg.h.
+     * All registrations use CMD_/TOK_ macros for consistency. */
+    dict_insert(irc_func_dict, CMD_SACYCLE, cmd_sacycle);
+    dict_insert(irc_func_dict, TOK_SACYCLE, cmd_sacycle);
+    dict_insert(irc_func_dict, CMD_SAIDENT, cmd_saident);
+    dict_insert(irc_func_dict, TOK_SAIDENT, cmd_saident);
+    dict_insert(irc_func_dict, CMD_SAINFO, cmd_sainfo);
+    dict_insert(irc_func_dict, TOK_SAINFO, cmd_sainfo);
+    dict_insert(irc_func_dict, CMD_SATOPIC, cmd_satopic);
+    dict_insert(irc_func_dict, TOK_SATOPIC, cmd_satopic);
+    dict_insert(irc_func_dict, CMD_SAMODE, cmd_samode);
+    dict_insert(irc_func_dict, TOK_SAMODE, cmd_samode);
+    dict_insert(irc_func_dict, CMD_SANOOP, cmd_sanoop);
+    dict_insert(irc_func_dict, TOK_SANOOP, cmd_sanoop);
+    dict_insert(irc_func_dict, CMD_SETHOST, cmd_sethost);
+    dict_insert(irc_func_dict, TOK_SETHOST, cmd_sethost);
+    dict_insert(irc_func_dict, CMD_FINGERPRINT, cmd_fingerprint);
+    dict_insert(irc_func_dict, TOK_FINGERPRINT, cmd_fingerprint);
+    dict_insert(irc_func_dict, CMD_SETNAME, cmd_setname);
+    dict_insert(irc_func_dict, TOK_SETNAME, cmd_setname);
+    dict_insert(irc_func_dict, CMD_TAGMSG, cmd_dummy);
+    dict_insert(irc_func_dict, TOK_TAGMSG, cmd_dummy);
+    dict_insert(irc_func_dict, CMD_PROTOCTL, cmd_dummy);
+    dict_insert(irc_func_dict, TOK_PROTOCTL, cmd_dummy);
+    dict_insert(irc_func_dict, CMD_ISNEF, cmd_dummy);
+    dict_insert(irc_func_dict, TOK_ISNEF, cmd_dummy);
+    dict_insert(irc_func_dict, CMD_CHECK, cmd_dummy);
+    dict_insert(irc_func_dict, TOK_CHECK, cmd_dummy);
+    dict_insert(irc_func_dict, CMD_DLINE, cmd_dummy);
+    dict_insert(irc_func_dict, TOK_DLINE, cmd_dummy);
+    dict_insert(irc_func_dict, "IRCOPS", cmd_dummy);
+    dict_insert(irc_func_dict, CMD_STARTTLS, cmd_dummy);
+    dict_insert(irc_func_dict, TOK_STARTTLS, cmd_dummy);
+    dict_insert(irc_func_dict, CMD_WATCH, cmd_dummy);
+    dict_insert(irc_func_dict, TOK_WATCH, cmd_dummy);
 
     /* handle topics */
     dict_insert(irc_func_dict, "331", cmd_num_topic);
@@ -2956,8 +3191,7 @@ parse_foreach(char *target_list, foreach_chanfunc cf, foreach_nonchan nc, foreac
     } while (old == ',');
 }
 
-static int
-get_local_numeric(void)
+static int get_local_numeric(void)
 {
     static unsigned int next_numeric = 0;
     if (self->clients > self->num_mask)
@@ -3532,10 +3766,9 @@ mod_chanmode_parse(struct chanNode *channel, char **modes, unsigned int argc, un
         case 'Q': do_chan_mode(MODE_NOQUITMSGS); break;
         case 'T': do_chan_mode(MODE_NOAMSG); break;
         case 'O': do_chan_mode(MODE_OPERSONLY); break;
-        case 'a': do_chan_mode(MODE_ADMINSONLY); break;
+        case 'G': do_chan_mode(MODE_ADMINSONLY); break;
         case 'Z': do_chan_mode(MODE_SSLONLY); break;
-	case 'L': do_chan_mode(MODE_HIDEMODE); break;
-	case 'z':
+        case 'R':
 	  if (!(flags & MCP_REGISTERED)) {
               do_chan_mode(MODE_REGISTERED);
 	  } else {
@@ -3543,6 +3776,19 @@ mod_chanmode_parse(struct chanNode *channel, char **modes, unsigned int argc, un
               return NULL;
 	  }
 	  break;
+	case 'L':
+            /* Cathexis +L is a channel redirect mode with a channel parameter. */
+            if (add) {
+                if (in_arg >= argc)
+                    goto error;
+                change->modes_set |= MODE_REDIRECT;
+                safestrncpy(change->new_redirect, modes[in_arg++], sizeof(change->new_redirect));
+            } else {
+                change->modes_set &= ~MODE_REDIRECT;
+                change->modes_clear |= MODE_REDIRECT;
+            }
+            break;
+	case 'z': do_chan_mode(MODE_PERSIST); break;
 #undef do_chan_mode
         case 'l':
             if (add) {
@@ -3621,7 +3867,7 @@ mod_chanmode_parse(struct chanNode *channel, char **modes, unsigned int argc, un
                 change->args[ch_arg].mode |= MODE_REMOVE;
             change->args[ch_arg++].u.hostmask = modes[in_arg++];
             break;
-        case 'o': case 'h': case 'v':
+        case 'q': case 'a': case 'o': case 'h': case 'v':
         {
             struct userNode *victim;
             char *oplevel_str;
@@ -3652,7 +3898,11 @@ mod_chanmode_parse(struct chanNode *channel, char **modes, unsigned int argc, un
             if (in_arg >= argc)
                 goto error;
 
-            if (modes[0][ii] == 'o')
+            if (modes[0][ii] == 'q')
+                change->args[ch_arg].mode = MODE_OWNER | MODE_CHANOP;
+            else if (modes[0][ii] == 'a')
+                change->args[ch_arg].mode = MODE_PROTECT | MODE_CHANOP;
+            else if (modes[0][ii] == 'o')
                 change->args[ch_arg].mode = MODE_CHANOP;
             else if (modes[0][ii] == 'h')
                 change->args[ch_arg].mode = MODE_HALFOP;
@@ -3767,10 +4017,11 @@ mod_chanmode_announce(struct userNode *who, struct chanNode *channel, struct mod
         DO_MODE_CHAR(NOQUITMSGS, 'Q');
         DO_MODE_CHAR(NOAMSG, 'T');
         DO_MODE_CHAR(OPERSONLY, 'O');
-        DO_MODE_CHAR(ADMINSONLY, 'a');
-        DO_MODE_CHAR(REGISTERED, 'z');
+        DO_MODE_CHAR(ADMINSONLY, 'G');
+        DO_MODE_CHAR(REGISTERED, 'R');
+        DO_MODE_CHAR(PERSIST, 'z');
         DO_MODE_CHAR(SSLONLY, 'Z');
-	DO_MODE_CHAR(HIDEMODE, 'L');
+	DO_MODE_CHAR(REDIRECT, 'L');
 #undef DO_MODE_CHAR
         if (change->modes_clear & channel->modes & MODE_KEY)
             mod_chanmode_append(&chbuf, 'k', channel->key);
@@ -3792,7 +4043,11 @@ mod_chanmode_announce(struct userNode *who, struct chanNode *channel, struct mod
             mod_chanmode_append(&chbuf, 'e', change->args[arg].u.hostmask);
             break;
         default:
-            if (change->args[arg].mode & MODE_CHANOP)
+            if (change->args[arg].mode & MODE_OWNER)
+                mod_chanmode_append(&chbuf, 'q', change->args[arg].u.member->user->numeric);
+            else if (change->args[arg].mode & MODE_PROTECT)
+                mod_chanmode_append(&chbuf, 'a', change->args[arg].u.member->user->numeric);
+            else if (change->args[arg].mode & MODE_CHANOP)
                 mod_chanmode_append(&chbuf, 'o', change->args[arg].u.member->user->numeric);
             if (change->args[arg].mode & MODE_HALFOP)
                 mod_chanmode_append(&chbuf, 'h', change->args[arg].u.member->user->numeric);
@@ -3824,10 +4079,10 @@ mod_chanmode_announce(struct userNode *who, struct chanNode *channel, struct mod
         DO_MODE_CHAR(NOQUITMSGS, 'Q');
         DO_MODE_CHAR(NOAMSG, 'T');
         DO_MODE_CHAR(OPERSONLY, 'O');
-        DO_MODE_CHAR(ADMINSONLY, 'a');
-        DO_MODE_CHAR(REGISTERED, 'z');
+        DO_MODE_CHAR(ADMINSONLY, 'G');
+        DO_MODE_CHAR(REGISTERED, 'R');
+        DO_MODE_CHAR(PERSIST, 'z');
         DO_MODE_CHAR(SSLONLY, 'Z');
-	DO_MODE_CHAR(HIDEMODE, 'L');
 #undef DO_MODE_CHAR
         if(change->modes_set & MODE_KEY)
             mod_chanmode_append(&chbuf, 'k', change->new_key);
@@ -3835,6 +4090,8 @@ mod_chanmode_announce(struct userNode *who, struct chanNode *channel, struct mod
             mod_chanmode_append(&chbuf, 'U', change->new_upass);
         if (change->modes_set & MODE_APASS)
             mod_chanmode_append(&chbuf, 'A', change->new_apass);
+        if(change->modes_set & MODE_REDIRECT)
+            mod_chanmode_append(&chbuf, 'L', change->new_redirect);
         if(change->modes_set & MODE_LIMIT) {
             sprintf(int_buff, "%d", change->new_limit);
             mod_chanmode_append(&chbuf, 'l', int_buff);
@@ -3853,7 +4110,11 @@ mod_chanmode_announce(struct userNode *who, struct chanNode *channel, struct mod
             mod_chanmode_append(&chbuf, 'e', change->args[arg].u.hostmask);
             break;
         default:
-            if (change->args[arg].mode & MODE_CHANOP)
+            if (change->args[arg].mode & MODE_OWNER)
+                mod_chanmode_append(&chbuf, 'q', change->args[arg].u.member->user->numeric);
+            else if (change->args[arg].mode & MODE_PROTECT)
+                mod_chanmode_append(&chbuf, 'a', change->args[arg].u.member->user->numeric);
+            else if (change->args[arg].mode & MODE_CHANOP)
                 mod_chanmode_append(&chbuf, 'o', change->args[arg].u.member->user->numeric);
             if (change->args[arg].mode & MODE_HALFOP)
                 mod_chanmode_append(&chbuf, 'h', change->args[arg].u.member->user->numeric);
@@ -3900,10 +4161,11 @@ mod_chanmode_format(struct mod_chanmode *change, char *outbuff)
         DO_MODE_CHAR(NOQUITMSGS, 'Q');
         DO_MODE_CHAR(NOAMSG, 'T');
         DO_MODE_CHAR(OPERSONLY, 'O');
-        DO_MODE_CHAR(ADMINSONLY, 'a');
-        DO_MODE_CHAR(REGISTERED, 'z');
+        DO_MODE_CHAR(ADMINSONLY, 'G');
+        DO_MODE_CHAR(REGISTERED, 'R');
+        DO_MODE_CHAR(PERSIST, 'z');
         DO_MODE_CHAR(SSLONLY, 'Z');
-	DO_MODE_CHAR(HIDEMODE, 'L');
+	DO_MODE_CHAR(REDIRECT, 'L');
 #undef DO_MODE_CHAR
     }
     if (change->modes_set) {
@@ -3925,10 +4187,11 @@ mod_chanmode_format(struct mod_chanmode *change, char *outbuff)
         DO_MODE_CHAR(NOQUITMSGS, 'Q');
         DO_MODE_CHAR(NOAMSG, 'T');
         DO_MODE_CHAR(OPERSONLY, 'O');
-        DO_MODE_CHAR(ADMINSONLY, 'a');
-        DO_MODE_CHAR(REGISTERED, 'z');
+        DO_MODE_CHAR(ADMINSONLY, 'G');
+        DO_MODE_CHAR(REGISTERED, 'R');
+        DO_MODE_CHAR(PERSIST, 'z');
         DO_MODE_CHAR(SSLONLY, 'Z');
-	DO_MODE_CHAR(HIDEMODE, 'L');
+	DO_MODE_CHAR(REDIRECT, 'L');
 
 	DO_MODE_CHAR(KEY, 'k');
 	DO_MODE_CHAR(LIMIT, 'l');
@@ -3941,6 +4204,7 @@ mod_chanmode_format(struct mod_chanmode *change, char *outbuff)
 	if (change->modes_set & MODE_LIMIT) used += sprintf(outbuff+used, " %d", change->new_limit);
 	DO_MODE_PARM(APASS, change->new_apass);
 	DO_MODE_PARM(UPASS, change->new_upass);
+	DO_MODE_PARM(REDIRECT, change->new_redirect);
 #undef DO_MODE_PARM
     }
     outbuff[used] = 0;
@@ -3955,6 +4219,8 @@ clear_chanmode(struct chanNode *channel, const char *modes)
     for (cleared = 0; *modes; modes++) {
         switch (*modes) {
         case 'o': cleared |= MODE_CHANOP; break;
+        case 'q': cleared |= MODE_OWNER | MODE_CHANOP; break;
+        case 'a': cleared |= MODE_PROTECT | MODE_CHANOP; break;
         case 'h': cleared |= MODE_HALFOP; break;
         case 'v': cleared |= MODE_VOICE; break;
         case 'p': cleared |= MODE_PRIVATE; break;
@@ -3991,10 +4257,14 @@ clear_chanmode(struct chanNode *channel, const char *modes)
         case 'Q': cleared |= MODE_NOQUITMSGS; break;
         case 'T': cleared |= MODE_NOAMSG; break;
         case 'O': cleared |= MODE_OPERSONLY; break;
-        case 'a': cleared |= MODE_ADMINSONLY; break;
-        case 'z': cleared |= MODE_REGISTERED; break;
+        case 'G': cleared |= MODE_ADMINSONLY; break;
+        case 'R': cleared |= MODE_REGISTERED; break;
+        case 'z': cleared |= MODE_PERSIST; break;
         case 'Z': cleared |= MODE_SSLONLY; break;
-	case 'L': cleared |= MODE_HIDEMODE; break;
+	case 'L':
+            cleared |= MODE_REDIRECT;
+            channel->redirect[0] = '\0';
+            break;
         }
     }
 
@@ -4083,8 +4353,7 @@ unreg_notice_func(struct userNode *user)
     notice_funcs[user->num_local] = NULL;
 }
 
-static void
-send_burst(void)
+static void send_burst(void)
 {
     unsigned int i, hop, max_hop=1;
     dict_iterator_t it;

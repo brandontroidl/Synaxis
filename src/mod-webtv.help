@@ -1,30 +1,6 @@
-"<INDEX>" (
-        " Hello there!",
-        " Im $b$S$b, your handy WebTV helper service.",
-        "$b$b",
-        " With this service you can use common IRC",
-        " commands that are not directly available via",
-        " your WebTV.",
-        "=---------------------------------------=",
-	"  $bJOIN$b    - Joins you into a room.",
-        "  $bNICK$b    - Change your nickname.",
-        "  $bPART$b    - Removes you from a room.",
-        "  $bWHOIS$b   - Get information on another user.",
-        "$b$b",
-        " See $b/msg $S help <command>$b for syntax",
-        " and usage for a command");
-
-"COMMANDS" "${index}";
-
-"JOIN" ("/msg $S JOIN #room [password]",
-       "Joins you into a room of you choice, if it has a password you will need to specify that also.");
-
-"NICK" ("/msg $S NICK <new nick>",
-       "Changes your nickname to a new one of your choice (as long as its not in use and it is valid).");
-
-"PART" ("/msg $S PART #room",
-       "Removes from a room of you choice.");
-
-"WHOIS" ("/msg $S WHOIS <nickname>",
-       "Retrieves information on the user you specify.");
-
+"<index>" ("$bWebTV — Legacy Client Support$b",
+           " ",
+           "Provides compatibility for WebTV/MSN TV IRC clients.",
+           "Strips unsupported formatting and adjusts message handling.",
+           " ",
+           "This module is loaded automatically when enabled.");

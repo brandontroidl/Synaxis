@@ -1,0 +1,7 @@
+"<index>" ("$bSnoop — Oper Activity Monitor$b",
+           " ",
+           "Snoop reports services activity to a designated oper channel.",
+           "Events include: registrations, authentication, access changes,",
+           "glines, shuns, and administrative actions.",
+           " ",
+           "Configure the snoop channel in x3.conf under modules/snoop.");

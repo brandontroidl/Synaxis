@@ -1,7 +1,7 @@
 /* mod-sockcheck.c - insecure proxy checking
  * Copyright 2000-2004 srvx Development Team
  *
- * This file is part of x3.
+ * This file is part of Synaxis (formerly x3).
  *
  * x3 is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -14,7 +14,7 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with srvx; if not, write to the Free Software Foundation,
+ * along with Synaxis; if not, write to the Free Software Foundation,
  * Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA.
  */
 
@@ -23,6 +23,7 @@
 #include "ioset.h"
 #include "modcmd.h"
 #include "timeq.h"
+#include "sno_masks.h"
 
 #ifdef HAVE_SYS_SOCKET_H
 #include <sys/socket.h>
@@ -207,6 +208,7 @@ sockcheck_issue_gline(sockcheck_cache_info sci)
     irc_ntop(addr + 2, sizeof(addr) - 2, &sci->addr);
     log_module(PC_LOG, LOG_INFO, "Issuing gline for client at %s: %s", addr + 2, sci->reason);
     gline_add("ProxyCheck", addr, sockcheck_conf.gline_duration, sci->reason, now, 1, 1);
+    irc_sno(SNO_GLINE, "PROXY: Open proxy detected at %s: %s", addr, sci->reason);
 
 }
 
@@ -563,7 +565,7 @@ sockcheck_readable(struct io_fd *fd)
 	const char *resp_state;
 
 	for (nn=0; nn<(client->state->responses.used-1); nn++) {
-            char *expected;
+            char *expected = NULL;
             unsigned int exp_length = 1, free_exp = 0;
 	    /* compare against possible target */
 	    resp_state = client->resp_state[nn];

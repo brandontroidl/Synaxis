@@ -1,7 +1,7 @@
 /* proto-common.c - common IRC protocol parsing/sending support
  * Copyright 2000-2004 srvx Development Team
  *
- * This file is part of x3.
+ * This file is part of Synaxis (formerly x3).
  *
  * x3 is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,12 +21,80 @@
 #include "conf.h"
 #include "gline.h"
 #include "ioset.h"
+
+#ifdef WITH_SSL
+#include <openssl/ssl.h>
+#include <openssl/err.h>
+static SSL_CTX *uplink_ssl_ctx = NULL;
+#endif
+#include "crypto.h"
 #include "log.h"
 #include "nickserv.h"
 #include "spamserv.h"
 #include "shun.h"
 #include "timeq.h"
 #include "version.h"
+
+/* ─── S2S HMAC per-message signing ─── */
+static unsigned char s2s_hmac_key[32];
+static int s2s_hmac_active = 0;
+static int s2s_hmac_enabled = 0; /* from config "server/s2s_hmac" */
+
+static const char hextab[] = "0123456789abcdef";
+
+static void s2s_bin_to_hex(char *hex, const unsigned char *bin, size_t len)
+{
+    size_t i;
+    for (i = 0; i < len; i++) {
+        hex[i * 2]     = hextab[(bin[i] >> 4) & 0x0f];
+        hex[i * 2 + 1] = hextab[bin[i] & 0x0f];
+    }
+    hex[len * 2] = '\0';
+}
+
+/** Derive S2S HMAC key from link password.
+ *  hmac_key = HMAC-SHA256(password, "cathexis-s2s-hmac-v1")
+ *  Must match Cathexis s2s_derive_keys() exactly. */
+static int s2s_derive_key(const char *passwd)
+{
+    if (!passwd || !*passwd)
+        return -1;
+    return crypto_hmac_sha256(
+        (const unsigned char *)passwd, strlen(passwd),
+        (const unsigned char *)"cathexis-s2s-hmac-v1", 20,
+        s2s_hmac_key);
+}
+
+/** Activate per-message HMAC signing after link registration. */
+void s2s_hmac_activate(const char *passwd)
+{
+    const char *str;
+
+    str = conf_get_data("server/s2s_hmac", RECDB_QSTRING);
+    s2s_hmac_enabled = str ? enabled_string(str) : 0;
+
+    if (!s2s_hmac_enabled) {
+        s2s_hmac_active = 0;
+        return;
+    }
+
+    if (s2s_derive_key(passwd) == 0) {
+        s2s_hmac_active = 1;
+        log_module(MAIN_LOG, LOG_INFO,
+            "S2S-HMAC: Per-message signing activated");
+    } else {
+        s2s_hmac_active = 0;
+        log_module(MAIN_LOG, LOG_WARNING,
+            "S2S-HMAC: Key derivation failed — signing disabled");
+    }
+}
+
+/** Deactivate HMAC (on disconnect/reconnect). */
+void s2s_hmac_deactivate(void)
+{
+    s2s_hmac_active = 0;
+    memset(s2s_hmac_key, 0, sizeof(s2s_hmac_key));
+}
 #ifdef HAVE_SYS_SOCKET_H
 #include <sys/socket.h>
 #endif
@@ -142,7 +210,80 @@ create_socket_client(struct uplinkNode *target)
     socket_io_fd->readable_cb = uplink_readable;
     socket_io_fd->destroy_cb = socket_destroyed;
     socket_io_fd->line_reads = 1;
-    log_module(MAIN_LOG, LOG_INFO, "Connection to server established.");
+    log_module(MAIN_LOG, LOG_INFO, "TCP connection to server established.");
+
+#ifdef WITH_SSL
+    if (target->ssl) {
+        /* Create SSL context if not already done */
+        if (!uplink_ssl_ctx) {
+            uplink_ssl_ctx = SSL_CTX_new(TLS_client_method());
+            if (!uplink_ssl_ctx) {
+                log_module(MAIN_LOG, LOG_ERROR, "SSL_CTX_new() failed.");
+                ioset_close(socket_io_fd, 1);
+                socket_io_fd = NULL;
+                target->state = DISCONNECTED;
+                target->tries++;
+                return 0;
+            }
+            SSL_CTX_set_min_proto_version(uplink_ssl_ctx, TLS1_2_VERSION);
+            SSL_CTX_set_options(uplink_ssl_ctx, SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 | SSL_OP_NO_TLSv1 | SSL_OP_NO_TLSv1_1);
+
+            /* Load client certificate if configured */
+            if (target->ssl_certfile) {
+                if (SSL_CTX_use_certificate_file(uplink_ssl_ctx, target->ssl_certfile, SSL_FILETYPE_PEM) != 1)
+                    log_module(MAIN_LOG, LOG_WARNING, "Failed to load SSL certificate: %s", target->ssl_certfile);
+            }
+            if (target->ssl_keyfile) {
+                if (SSL_CTX_use_PrivateKey_file(uplink_ssl_ctx, target->ssl_keyfile, SSL_FILETYPE_PEM) != 1)
+                    log_module(MAIN_LOG, LOG_WARNING, "Failed to load SSL key: %s", target->ssl_keyfile);
+            }
+            if (target->ssl_cafile) {
+                if (SSL_CTX_load_verify_locations(uplink_ssl_ctx, target->ssl_cafile, NULL) != 1)
+                    log_module(MAIN_LOG, LOG_WARNING, "Failed to load CA file: %s", target->ssl_cafile);
+                SSL_CTX_set_verify(uplink_ssl_ctx, SSL_VERIFY_PEER, NULL);
+            } else {
+                /* No CA file — don't verify (common for self-signed S2S certs) */
+                SSL_CTX_set_verify(uplink_ssl_ctx, SSL_VERIFY_NONE, NULL);
+            }
+        }
+
+        if (!ioset_ssl_connect(socket_io_fd, uplink_ssl_ctx, target->host)) {
+            log_module(MAIN_LOG, LOG_ERROR, "TLS handshake with %s:%d failed.", addr, port);
+            ioset_close(socket_io_fd, 1);
+            socket_io_fd = NULL;
+            target->state = DISCONNECTED;
+            target->tries++;
+            return 0;
+        }
+        log_module(MAIN_LOG, LOG_INFO, "TLS handshake with %s:%d successful.", addr, port);
+
+        /* Verify fingerprint if configured */
+        if (target->ssl_fingerprint && (SSL *)socket_io_fd->ssl) {
+            X509 *cert = SSL_get_peer_certificate((SSL *)socket_io_fd->ssl);
+            if (cert) {
+                unsigned char md[EVP_MAX_MD_SIZE];
+                unsigned int md_len;
+                char fp_hex[EVP_MAX_MD_SIZE * 3 + 1];
+                unsigned int i;
+                X509_digest(cert, EVP_sha256(), md, &md_len);
+                for (i = 0; i < md_len; i++)
+                    snprintf(fp_hex + i * 3, 4, "%02X:", md[i]);
+                fp_hex[md_len * 3 - 1] = '\0';
+                if (strcasecmp(fp_hex, target->ssl_fingerprint) != 0) {
+                    log_module(MAIN_LOG, LOG_ERROR, "TLS fingerprint mismatch! Expected %s, got %s",
+                               target->ssl_fingerprint, fp_hex);
+                    X509_free(cert);
+                    ioset_close(socket_io_fd, 1);
+                    socket_io_fd = NULL;
+                    target->state = DISCONNECTED;
+                    return 0;
+                }
+                log_module(MAIN_LOG, LOG_INFO, "TLS fingerprint verified: %s", fp_hex);
+                X509_free(cert);
+            }
+        }
+    }
+#endif /* WITH_SSL */
     cManager.uplink = target;
     target->state = AUTHENTICATING;
     target->tries = 0;
@@ -257,6 +398,29 @@ putsock(const char *text, ...)
     buffer[pos] = 0;
     if (!replay_file) {
         log_replay(MAIN_LOG, true, buffer);
+
+        if (s2s_hmac_active) {
+            /* Prepend @hmac=<64hex> to the message */
+            unsigned char mac[32];
+            char hexmac[65];
+            char signed_buf[MAXLEN + 80];
+            int slen;
+
+            if (crypto_hmac_sha256(s2s_hmac_key, 32,
+                    (const unsigned char *)buffer, pos, mac) == 0) {
+                s2s_bin_to_hex(hexmac, mac, 32);
+                slen = snprintf(signed_buf, sizeof(signed_buf) - 2,
+                    "@hmac=%s %s", hexmac, buffer);
+                if (slen > 0 && slen < (int)sizeof(signed_buf) - 2) {
+                    signed_buf[slen++] = '\n';
+                    signed_buf[slen] = '\0';
+                    ioset_write(socket_io_fd, signed_buf, slen);
+                    return;
+                }
+            }
+            /* Fallback: send unsigned if signing fails */
+        }
+
         buffer[pos++] = '\n';
         buffer[pos] = 0;
         ioset_write(socket_io_fd, buffer, pos);
@@ -268,6 +432,7 @@ putsock(const char *text, ...)
 void
 close_socket(void)
 {
+    s2s_hmac_deactivate();
     if (replay_file) {
         replay_connected = 0;
         socket_destroyed(socket_io_fd);
@@ -628,6 +793,8 @@ mod_chanmode_apply(struct userNode *who, struct chanNode *channel, struct mod_ch
        strcpy(channel->upass, change->new_upass);
     if (change->modes_set & MODE_APASS)
        strcpy(channel->apass, change->new_apass);
+    if (change->modes_set & MODE_REDIRECT)
+       safestrncpy(channel->redirect, change->new_redirect, sizeof(channel->redirect));
     for (ii = 0; ii < change->argc; ++ii) {
         switch (change->args[ii].mode) {
         case MODE_BAN:
@@ -657,8 +824,8 @@ mod_chanmode_apply(struct userNode *who, struct chanNode *channel, struct mod_ch
                 bn = channel->banlist.list[jj];
                 if (strcmp(bn->ban, change->args[ii].u.hostmask))
                     continue;
-                free(bn);
                 banList_remove(&channel->banlist, bn);
+                free(bn);
                 break;
             }
             break;
@@ -692,32 +859,14 @@ mod_chanmode_apply(struct userNode *who, struct chanNode *channel, struct mod_ch
                 break;
             }
             break;
-            /* XXX Hack: this is the stupedest use of switch iv ever seen.
-             * you have to compare for EVERY POSSIBLE COMBINATION of bitmask
-             * because switch does only full comparison. This needs redone as if/else.
-             **/
-        case MODE_CHANOP:
-        case MODE_HALFOP:
-        case MODE_VOICE:
-        case MODE_VOICE|MODE_CHANOP:
-        case MODE_VOICE|MODE_HALFOP:
-        case MODE_CHANOP|MODE_HALFOP:
-        case MODE_VOICE|MODE_CHANOP|MODE_HALFOP:
-        case MODE_REMOVE|MODE_CHANOP:
-        case MODE_REMOVE|MODE_HALFOP:
-        case MODE_REMOVE|MODE_VOICE:
-        case MODE_REMOVE|MODE_VOICE|MODE_CHANOP:
-        case MODE_REMOVE|MODE_VOICE|MODE_HALFOP:
-        case MODE_REMOVE|MODE_CHANOP|MODE_HALFOP:
-        case MODE_REMOVE|MODE_VOICE|MODE_CHANOP|MODE_HALFOP:
-            if (change->args[ii].mode & MODE_REMOVE)
-                change->args[ii].u.member->modes &= ~change->args[ii].mode;
-            else
-                change->args[ii].u.member->modes |= change->args[ii].mode;
-            break;
         default:
-            assert(0 && "Invalid mode argument");
-            continue;
+            if (change->args[ii].u.member) {
+                if (change->args[ii].mode & MODE_REMOVE)
+                    change->args[ii].u.member->modes &= ~change->args[ii].mode;
+                else
+                    change->args[ii].u.member->modes |= change->args[ii].mode;
+            }
+            break;
         }
     }
 }
@@ -769,6 +918,7 @@ irc_make_chanmode(struct chanNode *chan, char *out)
     safestrncpy(change.new_key, chan->key, sizeof(change.new_key));
     safestrncpy(change.new_upass, chan->upass, sizeof(change.new_upass));
     safestrncpy(change.new_apass, chan->apass, sizeof(change.new_apass));
+    safestrncpy(change.new_redirect, chan->redirect, sizeof(change.new_redirect));
     return strlen(mod_chanmode_format(&change, out));
 }
 

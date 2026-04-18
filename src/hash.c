@@ -1,7 +1,7 @@
 /* hash.c - IRC network state database
  * Copyright 2000-2004 srvx Development Team
  *
- * This file is part of x3.
+ * This file is part of Synaxis (formerly x3).
  *
  * x3 is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -321,7 +321,7 @@ NickChange(struct userNode* user, const char *new_nick, int no_announce)
 }
 
 void
-SVSNickChange(struct userNode* user, const char *new_nick)
+SANickChange(struct userNode* user, const char *new_nick)
 {
     char *old_nick;
     unsigned int nn;

@@ -1,822 +1,205 @@
-"<INDEX>" (
-           " Hello there!                           ",
-           " I'm $C, your handy channel services bot.",
-           " $b$b",
-           " Please select the area you would like  ",
-           " help with from the list below. The     ",
-           " help system uses the format:          ",
-           "   $b/MSG $C HELP <$bsubject$b>$b       ",
-           " (In help, words in <> represent required",
-           " parameters. Words in [] are optional.)",
-           " For example: $b/msg $C HELP UBM$b      ",
-           " shows help with the Un-Ban Me command.   ",
-           "=---------------------------------------=",
-           " GENERAL  - How to get and communicate with $C  ",
-           " USER     - Commands to add and remove",
-           "            bans, ops and managers from ",
-           "            your channel.",
-           " CHANNEL  - Other channel related info",
-           "            like setting permanent modes",
-           "            and topic.",
-           " INFORMATION - Informative commands.",
-           " OPER     - Commands for IRC Operators.",
-           "$b$b",
-           "Also see $b/MSG $N HELP$b for getting",
-           "and maintaining your user account."
-);
-"USER"     ("$bUserlist Management Commands:$b",
-            " $bUSERS$b       Show the channels userlist.",
-            " $bCLIST$b       Show all COOWNERs of a channel.",
-            " $bMLIST$b       Show all MANAGERs of a channel.",
-            " $bOLIST$b       Show all OPs of a channel.",
-            " $bHLIST$b       Show all HALFOPs of a channel.",
-            " $bPLIST$b       Show all PALs of a channel.",    
-            " $bLAMERS$b      Show all LAMERs of a channel.",
-            " $bACCESS$b      Check someone's access level in a channel.",
-            " $bCLVL$b        Change a person's access level in a channel.",
-            " $bUSET$b        Set a channel user's options (autos, info).",
-            " $bSEEN$b        Find out the last time a user was in a channel.",
-            "$b$b",
-            " $bADDPAL$b     Add a user as a PAL in a channel.",
-            " $bADDHOP$b      Add a user as an HALFOP in a channel.",
-            " $bADDOP$b       Add a user as an OP in a channel.",
-            " $bADDMANAGER$b  Add a user as a MANAGER in a channel.",
-            " $bADDCOOWNER$b  Add a user as COOWNER in a channel.",
-            " $bADDUSER$b     A more advanced way to add users.",
-            " $bADDLAMER$b    Add a lamer to the lamers (keep out) list.",
-            " $bADDTIMEDLAMER$b Add a lamer to the lamers list that expires in the specified time.",
-            "$b$b",
-            " $bDELUSER$b     Delete a user from the userlist.",
-            " $bMDELCOOWNER$b Mass-delete coowners with accounts matching a mask.",
-            " $bMDELMANAGER$b Mass-delete managers with accounts matching a mask.",
-            " $bMDELOP$b      Mass-delete ops with accounts matching a mask.",
-            " $bMDELHOP$b     Mass-delete halfops with accounts matching a mask.",
-            " $bMDELPAL$b     Mass-delete pals with accounts matching a mask.",
-            " $bDELLAMER$b    Remove the specified lamer from the lamer list.",
-            " $bWIPEINFO$b    Remove a lower-ranked user's infoline.",
-            " $bTRIM$b        Delete users who are inactive.",
-            " $bSUSPEND$b     Suspend a user's access to a channel.",
-            " $bUNSUSPEND$b   Restore a user's access to a channel.",
-            "$b$b",
-            " $bMYACCESS$b    Show all channels where you have access.",
-            " $bDELETEME$b    Delete YOURSELF from the userlist.",
-            " $bGIVEOWNERSHIP$b Give away ownership to another user."
-);
+"<index>" ("$bChanServ — Channel Registration & Management$b",
+           " ",
+           "$bRegistration:$b",
+           "  REGISTER  Register a channel",
+           "  DROP      Unregister a channel",
+           " ",
+           "$bAccess Control:$b",
+           "  ACCESS    Manage channel access list",
+           "  ADDUSER   Add a user to the access list",
+           "  DELUSER   Remove a user from the access list",
+           "  CLVL      Change a user's access level",
+           "  USERS     List users with access",
+           "  RESYNC    Synchronize modes with access list",
+           " ",
+           "$bChannel Control:$b",
+           "  OP        Op a user",
+           "  DEOP      Deop a user",
+           "  HOP       Halfop a user",
+           "  DEHOP     Dehalfop a user",
+           "  VOICE     Voice a user",
+           "  DEVOICE   Devoice a user",
+           "  PROTECT   Give protect (+a) to a user",
+           "  DEPROTECT Remove protect from a user",
+           "  OWNER     Give owner (+q) to a user",
+           "  DEOWNER   Remove owner from a user",
+           "  KICK      Kick a user",
+           "  BAN       Ban a user",
+           "  UNBAN     Remove a ban",
+           "  KICKBAN   Kick and ban a user",
+           " ",
+           "$bChannel Settings:$b",
+           "  SET       View/change channel settings",
+           "  TOPIC     Set the channel topic",
+           "  MODE      Set channel modes",
+           "  INVITE    Invite a user to the channel",
+           " ",
+           "$bInformation:$b",
+           "  INFO      Channel information",
+           "  PEEK      View channel without joining",
+           "  WLIST     List channel owners",
+           "  MLIST     List channel managers",
+           "  OLIST     List channel ops",
+           "  HLIST     List channel halfops",
+           "  VLIST     List channel voices",
+           " ",
+           "$bStaff:$b",
+           "  SUSPEND   Suspend a channel registration",
+           "  UNSUSPEND Unsuspend a channel",
+           "  CSEARCH   Search channel registrations",
+           "  MOVE      Transfer a channel registration",
+           "  MERGE     Merge two channel registrations",
+           " ",
+           "Type $b/msg $C HELP <command>$b for help on a specific command.");
+"REGISTER" ("$bREGISTER$b <#channel>",
+            "Registers the named channel with $C. You must be an op (+o) in the channel to register it.",
+            "Once registered, $C will protect the channel and enforce its access list.");
+"DROP" ("$bDROP$b <#channel> [confirmation]",
+        "Unregisters the channel. You must be the channel founder. This is irreversible.");
+"ACCESS" ("$bACCESS$b <#channel> <ADD|DEL|LIST> [mask] [level]",
+          "Manages the channel access list.",
+          "Levels: 1-99 Voice, 100-199 HalfOp, 200-299 Op, 300-399 Manager, 400-499 Coowner, 500 Owner");
+"RESYNC" ("$bRESYNC$b <#channel>",
+          "Synchronizes channel modes with the access list. Users are opped, voiced, or deopped to match their access level. Use this after netsplits or manual mode changes.");
+"SET" ("$bSET$b <#channel> [option] [value]",
+       "View or change channel settings. Without arguments, shows all settings.",
+       "Options: DEFAULTTOPIC, TOPICMASK, GREETING, USERGREETING, MODES, PUBCMD, INVITEME, USERINFO, ENFOPS, ENFHALFOPS, ENFMODES, ENFTOPIC, PROTECT, TOYS, DYNLIMIT, OFFCHANNEL");
+"SET DEFAULTTOPIC" ("$bSET DEFAULTTOPIC$b <#channel> <topic>",
+                    "Sets the default topic. This topic is restored when the channel empties or on SET DEFAULTS.");
+"SET TOPICMASK" ("$bSET TOPICMASK$b <#channel> <mask|*>",
+                 "Restricts the topic to match a pattern. Use * in the mask where users can edit.",
+                 "Example: SET #chan TOPICMASK Welcome to #chan | *");
+"SET GREETING" ("$bSET GREETING$b <#channel> <message>",
+                "Sets a greeting shown to users with access when they join.");
+"SET USERGREETING" ("$bSET USERGREETING$b <#channel> <message>",
+                    "Sets a greeting shown to ALL users when they join.");
+"SET MODES" ("$bSET MODES$b <#channel> <+/-modes>",
+             "Sets the default channel modes. These are enforced when ENFMODES is on.",
+             "Example: SET #chan MODES +nt-k");
+"SET ENFOPS" ("$bSET ENFOPS$b <#channel> <ON|OFF>",
+              "When ON, deops users who are not on the channel access list.");
+"SET ENFHALFOPS" ("$bSET ENFHALFOPS$b <#channel> <ON|OFF>",
+                  "When ON, dehalfops users who are not on the channel access list.");
+"SET AUTOMODE" ("$bSET AUTOMODE$b <#channel> <0-5>",
+                "Controls automatic op/voice on join. 0=off, 1=op, 2=voice, 3=halfop, 4=op+voice, 5=all.");
+"SET PROTECT" ("$bSET PROTECT$b <#channel> <0-3>",
+               "Protection level. 0=none, 1=deop lower, 2=kick lower, 3=kickban lower.");
+"SET ENFMODES" ("$bSET ENFMODES$b <#channel> <ON|OFF>",
+                "When ON, enforces the modes set with SET MODES. Reverts unauthorized mode changes.");
+"SET ENFTOPIC" ("$bSET ENFTOPIC$b <#channel> <ON|OFF>",
+                "When ON, enforces the topic. Reverts unauthorized topic changes.");
+"SET PUBCMD" ("$bSET PUBCMD$b <#channel> <access-level>",
+              "Minimum access level required to use in-channel (!) commands. 0=everyone.");
+"SET USERINFO" ("$bSET USERINFO$b <#channel> <ON|OFF>",
+                "When ON, shows user info lines on join.");
+"SET DYNLIMIT" ("$bSET DYNLIMIT$b <#channel> <ON|OFF>",
+                "When ON, automatically adjusts +l limit to stay a few above the current user count.");
+"SET TOPICSNARF" ("$bSET TOPICSNARF$b <#channel> <ON|OFF>",
+                  "When ON, saves the current topic as the default topic whenever it changes.");
+"SET NODELETE" ("$bSET NODELETE$b <#channel> <ON|OFF>",
+                "Prevents the channel registration from being deleted. Staff only.");
+"SET TOYS" ("$bSET TOYS$b <#channel> <0-2>",
+            "Controls fun commands. 0=disabled, 1=private reply, 2=public reply.");
+"SET SETTERS" ("$bSET SETTERS$b <#channel> <access-level>",
+               "Minimum access level required to use SET commands.");
+"SET TOPICREFRESH" ("$bSET TOPICREFRESH$b <#channel> <interval>",
+                    "How often to refresh the topic (in seconds). 0=disabled.");
+"SET RESYNC" ("$bSET RESYNC$b <#channel> <ON|OFF>",
+              "When ON, periodically re-syncs ops/voices based on the access list.");
+"SET CTCPREACTION" ("$bSET CTCPREACTION$b <#channel> <0-3>",
+                    "Action on CTCP to channel. 0=none, 1=kick, 2=kickban, 3=ban+timed.");
+"SET BANTIMEOUT" ("$bSET BANTIMEOUT$b <#channel> <seconds>",
+                  "Automatically removes bans after this many seconds. 0=never.");
+"SET INVITEME" ("$bSET INVITEME$b <#channel> <access-level>",
+                "Minimum access level to use the INVITEME command.");
+"SET OFFCHANNEL" ("$bSET OFFCHANNEL$b <#channel> <ON|OFF>",
+                  "When ON, ChanServ does not idle in the channel.");
+"SET MAXSETINFO" ("$bSET MAXSETINFO$b <#channel> <length>",
+                  "Maximum length for user SETINFO lines. 0=disabled.");
+"SET DEFAULTS" ("$bSET DEFAULTS$b <#channel>",
+                "Resets all channel settings to defaults. Owner only.");
+"SUSPEND" ("$bSUSPEND$b <#channel> <reason>",
+           "Suspends a channel registration. The channel becomes frozen — all access is disabled and the topic is replaced with the suspension reason. Staff only.");
+"UNSUSPEND" ("$bUNSUSPEND$b <#channel>",
+             "Removes a channel suspension, restoring normal operation. Staff only.");
+"USET" ("$bUSET$b <#channel> [option] [value]",
+        "View or change your per-channel user settings.",
+        "Options: AUTOINVITE, AUTOJOIN, AUTOOP, INFO");
+"USET AUTOINVITE" ("$bUSET AUTOINVITE$b <#channel> <ON|OFF>",
+                   "When ON, you are automatically invited when you identify with NickServ.");
+"USET AUTOJOIN" ("$bUSET AUTOJOIN$b <#channel> <ON|OFF>",
+                 "When ON, you automatically join the channel when you identify.");
+"USET AUTOOP" ("$bUSET AUTOOP$b <#channel> <ON|OFF>",
+               "When ON, you are automatically opped/voiced based on your access level when you join.");
+"USET INFO" ("$bUSET INFO$b <#channel> <text>",
+             "Sets your personal info line shown when you join (if channel has USERINFO on).");
+"ADDUSER" ("$bADDUSER$b <#channel> <account> <level>",
+           "Adds a user to the channel access list at the specified level.",
+           "Levels: voice(1), halfop(100), op(200), manager(300), coowner(400), owner(500)");
+"DELUSER" ("$bDELUSER$b <#channel> <account>",
+           "Removes a user from the channel access list.");
+"CLVL" ("$bCLVL$b <#channel> <account> <level>",
+        "Changes a user's access level on the channel.");
+"USERS" ("$bUSERS$b <#channel>",
+         "Lists all users with access to the channel, their levels, and last seen times.");
+"OP" ("$bOP$b <#channel> [nick]",
+      "Ops the specified user, or yourself if no nick given. Requires op access (200+).");
+"DEOP" ("$bDEOP$b <#channel> [nick]",
+        "Deops the specified user, or yourself if no nick given.");
+"HOP" ("$bHOP$b <#channel> [nick]",
+       "Halfops the specified user, or yourself if no nick given. Requires halfop access (100+).");
+"DEHOP" ("$bDEHOP$b <#channel> [nick]",
+         "Dehalfops the specified user, or yourself if no nick given.");
+"VOICE" ("$bVOICE$b <#channel> [nick]",
+         "Voices the specified user, or yourself if no nick given.");
+"DEVOICE" ("$bDEVOICE$b <#channel> [nick]",
+           "Devoices the specified user, or yourself if no nick given.");
+"KICK" ("$bKICK$b <#channel> <nick> [reason]",
+        "Kicks a user from the channel. You must outrank the target.");
+"BAN" ("$bBAN$b <#channel> <nick|mask> [duration]",
+       "Bans a user or hostmask from the channel. Optional duration (e.g., 1h, 30m).");
+"UNBAN" ("$bUNBAN$b <#channel> <nick|mask>",
+         "Removes a ban matching the nick or mask.");
+"KICKBAN" ("$bKICKBAN$b <#channel> <nick> [reason]",
+           "Kicks and bans a user from the channel.");
+"TOPIC" ("$bTOPIC$b <#channel> <topic>",
+         "Sets the channel topic through ChanServ.");
+"MODE" ("$bMODE$b <#channel> <modes>",
+        "Sets channel modes through ChanServ. Requires manager access (300+).",
+        "Example: MODE #chan +nt-k");
+"INVITE" ("$bINVITE$b <#channel> [nick]",
+          "Invites yourself or a user to a +i channel. Requires INVITEME access level.");
+"INFO" ("$bINFO$b <#channel>",
+        "Displays channel registration info: owner, visitor count, registration date, and settings.");
+"PEEK" ("$bPEEK$b <#channel>",
+        "View a channel's topic, modes, and user count without joining.");
+"WLIST" ("$bWLIST$b <#channel>",
+         "Lists channel owners (access 500).");
+"MLIST" ("$bMLIST$b <#channel>",
+         "Lists channel managers (access 300-499).");
+"OLIST" ("$bOLIST$b <#channel>",
+         "Lists channel ops (access 200-299).");
+"HLIST" ("$bHLIST$b <#channel>",
+         "Lists channel halfops (access 100-199).");
+"PLIST" ("$bPLIST$b <#channel>",
+         "Lists channel voices (access 1-99). Alias: VLIST.");
 
-"CHANNEL"  ("$bChannel Commands:$b",
-            " $bSET$b         Change various channel settings.",
-            " $bTOPIC$b       Set the current topic, or reset it to the default topic.",
-            " $bMODE$b        Change a channel mode.",
-            " $bOPEN$b        Remove +ilk channel modes and any bans on you from a channel.",
-            "*$bNOTE$b        Set a note on a channel.",
-            "*$bDELNOTE$b     Remove a note from a channel.",
-            "$b$b",
-            " $bUP$b          Give you ops in a channel.",
-            " $bDOWN$b        Remove your ops in a channel.",
-            " $bUPALL$b       Give you ops in all channels you have access to.",
-            " $bDOWNALL$b     Remove your ops in all channels.",
-            " $bOP$b          Give ops to the specified user.",
-            " $bDEOP$b        Remove ops from the specified user.",
-            " $bHOP$b         Give halfops to the specified user.",
-            " $bDEHOP$b       Remove halfops from the specified user.",
-            " $bVOICE$b       Give voice to the specified user.",
-            " $bDEVOICE$b     Remove voice from the specified user.",
-            " $bRESYNC$b      Synchronize (half)ops and voice with the channel userlist.",
-            "$b$b",
-            " $bKICK$b        Kick a user from a channel.",
-            " $bBAN$b         Ban a user from a channel.",
-            " $bUNBAN$b       Remove the specified ban from the channel.",
-            " $bKICKBAN$b     Kick and ban a user from a channel.",
-            " $bUNBANME$b     Remove a ban matching your hostmask from specified channel.",
-            " $bUNBANALL$b    Remove all bans from a channel.",
-            " $bINVITE$b      Admit a user to pass through +ib modes in your channel.",
-            "$b$b",
-            " $bINFO$b        Show information about a channel.",
-            " $bEVENTS$b      View a list of events relevant to a channel."
-);
-"INFORMATION"     ("$bInformative Commands:$b",
-            " $bMYACCESS$b    Show all the channels you have access to.",
-            " $bVERSION$b     Check the current running version of $C.",
-            " $bNETINFO$b     Check current network-wide information.",
-            " $bSTAFF$b       Get a list of all the current staff.",
-            " $bIRCOPS$b      Get a list of all the current IRC operators.",
-            " $bHELPERS$b     Get a list of all the current support helpers.",
-            " $bPEEK$b        Reveal information on a channel's modes, topic and ops.",
-            " $bCOMMAND$b     Display some information about a command.",
-            " $bINFO$b        Gets channel information about a channel.",
-            " $bEVENTS$b      View a list of events relevant to a channel.",
-            " $b$b ",
-            " $bUSERS$b       Show the channels userlist.",
-            " $bCLIST$b       Show all COOWNERs of a channel.",
-            " $bMLIST$b       Show all MANAGERs of a channel.",
-            " $bOLIST$b       Show all OPs of a channel.",
-            " $bHLIST$b       Show all HALFOPs of a channel.",
-            " $bPLIST$b       Show all PALs of a channel.",    
-            " $bLAMERS$b      Show all LAMERs of a channel.",
-            " $bACCESS$b      Check someone's access level in a channel.",
-);
-"OPER"     ("$bHelper/IRC Operator commands:$b",
-            " $bGOD$b         Turn security override on/off.",
-            " $bOPCHAN$b      Force $C to op itself in a channel.",
-            "$b$b",
-            " $bSEARCH$b      Find registered channel matching criteria.",
-            " $bREGISTER$b    Register a new channel with $C.",
-            " $bNOREGISTER$b  Add a channel to the do-not-register list.",
-            " $bALLOWREGISTER$b Remove a channel from the do-not-register list.",
-            " $bDNRSEARCH$b   Search the do-not-register list.",
-            " $bUNREGISTER$b  Remove $C from a registered channel.",
-            " $bMOVE$b        Transition one channel's registration to a new channel name.",
-            " $bMERGE$b       Merges a source and target channels' registration, ",
-            "                 users, bans, and other data into the target channel.",
-            " $bUNVISITED$b   List all channels that have not been visited in specified duration.",
-            " $bEXPIRE$b      Automatically unregister old channels.",
-            "$b$b",
-            " $bADDOWNER$b    Add a new owner to a channel.",
-            " $bDELOWNER$b    Remove a current owner from a channel.",
-            " $bMDELOWNER$b   Remove multiple owners by account mask from a channel.",
-            " $bCSUSPEND$b    Remove $C from a channel (preserving user data).",
-            " $bCUNSUSPEND$b  Restore $C to a channel that was suspended.",
-            "$b$b",
-            " $bCREATENOTE$b  Create a new note type.",
-            " $bREMOVENOTE$b  Remove an existing note type.",
-            "*$bSAY$b         Have $C say a message in a channel.",
-            "*$bEMOTE$b       Equivalent to $C doing a /me in a channel."
-);
-
-"GENERAL"  (
-	    "$b-$N Accounts$b-",
-            " Before using $C or being added to      ",
-            " channel userlists, you and your users  ",
-	    " must register an account with $b$N$b.  ",
-            "  $b/MSG $N help$b to learn how. ",
-            "$b$b",
-	    "$b-Talking to $C-$b",
-            " $C uses a standard interface for each  ",
-            " command in its command list. Commands  ",
-            " can be issued either in /MSG format or ",
-            " in a channel which $C is in. These two ",
-            " ways are demonstrated below:",
-            "  $b/MSG $C OP #chatzone Locke$b",
-            "  $b$!OP #chatzone locke$b",
-            "$b$b",
-            " If a command is given in a channel, and ",
-            " the channel parameter is not given, the ",
-            " channel that the command was issued in  ",
-            " will be used:",
-            " $b$!OP locke$b",
-            "$b$b",
-            " Some commands, such as $bNETINFO$b     ",
-            " don't require a channel. If one is      ",
-            " supplied it will be ignored.",
-            "$b$b",
-            " If a command takes additional parameters",
-            " aside from channel, they will be       ",
-            " expected as well.                       ",
-            " See $b/msg $C HELP <COMMAND>$b for the  ",
-            " exact syntax of each command.           ",
-            "=---------- For more info see: ---------=",
-            "   http://www.afternet.org/help          ",
-            "   http://www.afternet.org/help/irc/x3_help"
-);
-
-"LOGIN" (
-         " Please login using:",
-         "   /MSG $N AUTH <account> <password>",
-         " or the shortcut:",
-         "   /AUTH <account> <password>"
-         );
-"LEVELS" ("/msg $S LEVELS",
-        "Lists the numerical level equivalents for channel access levels.",
-        "$b$b",
-        "$S can use either the names (OWNER, COOWNER, MANAGER, OP, HALFOP, and PAL) or numerical values from 1 to 500 to indicate channel access levels. The LEVELS command prints out all the levels and their numerical ranges.",
-        "Advanced users can change their style with $N's set style command to view the numerical version in commands like USERS, and may use numbers instead of names for fine-tuning access.",
-        "$uSee Also:$u ($N) set style, access, myaccess, adduser");
-
-"MYACCESS" ("/msg $S MYACCESS [<nick|*account>]",
-        "Lists channels where you have access and infolines in each.",
-        "Network staff may specify a nickname or *account to view the list for another user.",
-        "Your access level in the channel may be followed by a comma and one of the following characters:",
-        "  s     Your access in the channel has been suspended.",
-        "  o     AutoOp is active.",
-        "  v     AutoVoice is active.",
-        "  i     AutoInvite is active.",
-        "  j     AutoJoin is active.",
-        "$uSee Also:$u access, users, levels");
-
-"ACCESS" ("/msg $S ACCESS <#channel> [<nick|*account>]",
-        "Reports various pieces of information about a channel user, including channel and network access level, and the user's info line. If no nick or account is provided, $S returns your own information.",
-        "$uSee Also:$u myaccess, users, levels");
-
-"ADDLAMER" ("/msg $C ADDLAMER <#channel> <mask|nick> [Reason]",
-        "Adds a lamer to the channels lamer list, remaining in effect until removed with the DELLAMER command. ",
-        "Lamers are nick!user@host masks which $C watches for, and keeps out of your channel.",
-        "If it exactly matches an existing lamer already in the list, the reason will be updated. If the existing lamer was a timed lamer, it will be extended into a permanent lamer.",
-        "$uSee Also:$u llist, dellamer, mdellamer");
-
-"ADDUSER" ("/msg $C ADDUSER <#channel> <nick|*account> <level> [duration]",
-        "This command adds someone to the channel user list with the specified access level.  (You may only add users to levels less than your own.)",
-        "The level may be one of $bpal$b, $bop$b, $bmanager$b, $bcoowner$b, $bowner$b, or a number between 1 and 500.  Only network staff may add level 500 users (owners).",
-        "An optional duration can be specified, if specified then the after the given duration has expired the person will be automatically removed from the channel.",
-        "$uSee Also:$u deluser, users, levels, durations");
-
-"ADDPAL" ("/msg $C ADDPAL <#channel> <nick|*account> [duration]",
-        "This command adds someone to the channel user list with hPAL access level. (You may only add users to levels less than your own.)",
-        "An optional duration can be specified, if specified then the after the given duration has expired the person will be automatically removed from the channel.",
-        "$uSee Also:$u adduser, deluser, users, durations");
-
-"ADDOP" ("/msg $C ADDOP <#channel> <nick|*account> [duration]",
-        "This command adds someone to the channel user list with OP access level. (You may only add users to levels less than your own.)",
-        "An optional duration can be specified, if specified then the after the given duration has expired the person will be automatically removed from the channel.",
-        "$uSee Also:$u adduser, deluser, users, durations");
-
-"ADDHOP" ("/msg $C ADDHOP <#channel> <nick|*account> [duration]",
-        "This command adds someone to the channel user list with HALFOP access level. (You may only add users to levels less than your own.)",
-        "An optional duration can be specified, if specified then the after the given duration has expired the person will be automatically removed from the channel.",
-        "$uSee Also:$u adduser, deluser, users, durations");
-
-"ADDMANAGER" ("/msg $C ADDMANAGER <#channel> <nick|*account> [duration]",
-        "This command adds someone to the channel user list with MANAGER access level. (You may only add users to levels less than your own.)",
-        "An optional duration can be specified, if specified then the after the given duration has expired the person will be automatically removed from the channel.",
-        "$uSee Also:$u adduser, deluser, users, durations");
-
-"ADDCOOWNER" ("/msg $C ADDCOOWNER <#channel> <nick|*account> [duration]",
-        "This command adds someone to the channel user list with COOWNER access level. (You may only add users to levels less than your own.)",
-        "An optional duration can be specified, if specified then the after the given duration has expired the person will be automatically removed from the channel.",
-        "$uSee Also:$u adduser, deluser, users, durations");
-
-"ADDTIMEDLAMER" ("/msg $C ADDTIMEDLAMER <#channel> <mask|nick> <Duration> [Reason]",
-        "Adds an automatically expiring lamer to the channel lamer list.",
-        "This command behaves in the exact same fashion as $bADDLAMER$b with the exception that the lamers are automatically removed after the user-supplied duration. ",
-        "If it exactly matches an existing lamer already in the list, the reason will be updated. If the existing lamer was a timed lamer, it will be extended. Timed lamers can be removed with the $bDELLAMER$b command, as with permanent lamers.",
-        "$uSee Also:$u addlamer, lamers, dellamer, durations");
-"ALLOWREGISTER" ("/msg $C ALLOWREGISTER <#channel|*Account>",
-        "Removes the named channel (or channel mask) from the do-not-register list.",
-        "$uSee Also:$u register, noregister, dnrsearch, unregister");
-"BAN" ("/msg $C BAN <#channel> <mask|nick>",
-        "This command will temporarily add a ban for the user specified as the parameter. Masks are to be supplied in the format <Nick>!<Ident>@<Host> and usually contain wildcards. If a nick is specified, a mask is automatically generated (though not completely foolproof). This ban is removed either by removing it from the channel ban list using any irc client, or sending the UNBAN or UNBANALL commands. If you are banned with this method, the UNBANME command can be used.",
-        "$uFor assistance, please join #Help$u",
-        "Example: *!*serv@*.afternet.org would ban anyone with ident 'serv' and an afternet.org hostname from joining the channel.",
-        "$uSee Also:$u unban, unbanall, unbanme");
-"LAMERS" ("/msg $C LAMERS <#channel> [mask]",
-        "This command lists all permanent and timed lamers in the channel matching an optional mask.",
-        "Lamers are nick!user@host masks which $C watches for, and keeps out of your channel.",
-        "If a nickname is specified, lists any bans that visibly match that user.",
-        "If a hostmask with no wildcards is specified, lists any bans that match that hostmask.",
-        "If a hostmask with wildcards is specified, lists any bans included in that mask.",
-        "$uSee Also:$u addlamer, dellamer, addtimedlamer");
-"CALC" ("/msg $C CALC <expression>",
-        "CALC calculates a mathematical expression and returns the answer.  It",
-        "supports +, -, *, /, ^, and () and many other math operations, such as",
-        "sqrt[], tan[], etc.",
-        "For example: CALC sqrt [5 + .43 * (tan[75])] / 2",
-        "If you do not have access in the channel, the answer may be reported",
-        "to you privately (via MSG or NOTICE) instead of in the channel.",
-        "$uSee Also:$u dice, 8ball");
-"8BALL" ("/msg $C 8BALL [yes/no question|what color is..|how many..|where is..]?",
-	"8BALL answers yes or no questions, color questions, numerical questions, and location questions.",
-	"If you do not have access in the channel, the answer may be reported to you privately instead of in the channel.",
-	"$uSee Also:$u dice, calc");
-"ROULETTE" ("/msg $C ROULETTE",
-        "ROULETTE loads the gun for a game of Russian roulette. Use FIRE to shoot it",
-        "$uSee Also:$u fire, spin");
-"FIRE"  ("/msg $C FIRE",
-        "FIRE the gun (after you load it with ROULETTE). WARNING: this may kill you.",
-        "$uSee Also:$u roulette, spin");
-"SPIN"  ("/msg $C SPIN",
-        "This plays a game of Wheel-Of-Misfortune. WARNING: this will result in serious injury or death. Do not play this game if you are faint of heart!",
-        "$uSee Also:$u roulette");
-"CLIST" ("/msg $C CLIST <#channel> [mask]",
-        "This command lists all users of level $bCoowner$b on a channel's userlist. If a mask is supplied, only coowners matching the mask will be shown.",
-        "$uSee Also:$u addcoowner, delcoowner, mdelcoowner, users");
-"CLVL" ("/msg $C CLVL <#channel> <nick|*account> <level> [duration]",
-        "Modifies a channel user's access level. You cannot give users access greater than or equal to your own.",
-	"You may use *Account instead of Nick as the name argument; the * makes $C use the name of an account directly (useful if the user is not online).",
-        "An optional duration can be specified, if specified then the after the given duration has expired the person will be automatically reverted back to their previous access level.",
-        "$uSee Also:$u access, users, giveownership, durations");
-"CREATENOTE" ("/msg $S CREATENOTE <typename> <set-access> [access-arg] <view-access> <max-length>",
-        "Defines a new note type.  $btypename$b is the name of the note type.  $bset-access$b is one of:",
-        "  $bPRIVILEGED$b with required $baccess-arg$b being the minimum OpServ level to set",
-        "  $bCHANNEL   $b with required $baccess-arg$b being the channel access level to set",
-        "  $bSETTER    $b (with no access-arg) to allow anyone who can !set to set",
-        "$bview-access$b is one of $bPRIVILEGED$b, $bCHANNEL_USERS$b, or $bALL$b, that determines who can see the note (if it is set).",
-        "$bmax-length$b is the maximum length for this kind of note.",
-        "If the note type already exists, it is modified with the new values you specify.",
-        "$uSee Also:$u removenote");
-"GIVEOWNERSHIP" ("/msg $C GIVEOWNERSHIP <#channel> <nick|*account>",
-        "Transfer ownership of the channel from you to another user on the channel's userlist.  You are demoted to co-owner, and he or she is promoted to owner.",
-	"You may use *Account instead of Nick as the name argument; the * makes $C use the name of an account directly (useful if the user is not online).",
-        "$uSee Also:$u clvl, access, users");
-"CSUSPEND" ("/msg $C CSUSPEND <#channel> [!]<duration> <reason>",
-        "This command will temporarily remove $b$C$b from a channel and suspend its registration.",
-        "The duration may be \"0\" to make it never expire; otherwise, $C will automatically unsuspend the channel after $uduration$u.",
-        "If you wish to modify a currently existing suspension, add a ! before the duration.",
-        "$uSee Also:$u unregister, cunsuspend, durations");
-"CUNSUSPEND" ("/msg $C CUNSUSPEND <#channel>",
-        "Restores a channel's $b$C$b registration.",
-        "$uSee Also:$u csuspend, unregister");
-"DELLAMER" ("/msg $C DELLAMER <#channel> <mask|nick>",
-        "Deletes one or more lamers from the channel lamer list. This command works for both permanent and timed lamers alike. You can use wildcards (* and ?) in the mask, and all matching lamers will be removed.",
-        "$uSee Also:$u addlamer, addtimedlamer, lamers");
-"DELNOTE" ("/msg $C DELNOTE <#channel> <note-name>",
-        "Deletes a note from the channel.  To do this, you must be able to set the note.",
-        "$uSee Also:$u note, note types");
-"DELUSER" ("/msg $C DELUSER <#channel> <nick|*account>",
-        "Deletes a user from the channel user list.",
-        "You may use *Account instead of Nick as the name argument; the * makes $C use the name of a account directly (useful if the user is not online).",
-        "$uSee Also:$u adduser, deleteme, users");
-"DELETEME" ("/msg $C DELETEME <#channel> [<secret>]",
-        "If you have less than owner access in a channel, $bdeleteme$b removes your access from the channel.  $bIf you do this by mistake, you must find a higher-ranked user to re-add you.$b",
-        "The secret value changes for each channel and each user.  If you do not include the secret value, $C will tell you what it should be.",
-        "$uSee Also:$u adduser, deluser, giveownership, users");
-"DEOP" ("/msg $C DEOP <#channel> <nick> [nick]...",
-        "Deops the specified user[s].",
-        "$uSee Also:$u down, op");
-"DEHOP" ("/msg $C DEHOP <#channel> <nick> [nick]...",
-        "Dehalfops the specified user[s].",
-        "$uSee Also:$u down, hop");
-"DEVOICE" ("/msg $C DEVOICE <#channel> <nick> [nick]...",
-        "This command will make $C devoice the selected user[s].",
-        "$uSee Also:$u addpal, delpal, deop, voice");
-"DNRSEARCH" ("/msg $C DNRSEARCH <action> <criteria> <value> [<criteria> <value> ...]",
-        "Searches through the current do-not-register list for those matching the specified criteria and applies the specified action to them.  A list of actions can be found in $bhelp dnrsearch action$b and a list of criteria in $bhelp dnrsearch criteria$b.",
-        "$uSee Also:$u allowregister, dnrsearch action, dnrsearch criteria, noregister");
-"DNRSEARCH ACTION" ("$bDNRSEARCH ACTION$b",
-	"Options for the action in $bdnrsearch$b are:",
-        "$bPRINT: $b      Display the do-not-register entry.",
-        "$bREMOVE:$b      Remove the do-not-register entry.",
-        "$bCOUNT: $b      Count the number of matching do-not-register entries.",
-        "$uSee Also:$u dnrsearch, dnrsearch criteria");
-"DNRSEARCH CRITERIA" ("$bDNRSEARCH CRITERIA$b",
-        "Options for the criteria in $bdnrsearch$b are:",
-        "$bCHANNEL:$b     Channel name, channel mask, or \*account (note the backslash).",
-        "$bSETTER: $b     Staff member who issued the do-not-register.",
-        "$bREASON: $b     Mask for the do-not-register reason or note.",
-        "$bLIMIT:  $b     Maximum entries to operate upon (default 50).",
-        "$bSET:    $b     Age limit for entry (defaults to minimum age).",
-        "$bEXPIRES:$b     Expiration limit for entry (defaults to minimum time).",
-        "Note: If you use the $blimit$b criteria, the full count of matching do-not-register entries will be shown at the end of the $bdnrsearch$b output, but only the first $blimit$b entries will be affected by the action.",
-        "$uSee Also:$u dnrsearch, dnrsearch action");
-"DOWN" ("/msg $C DOWN <#channel>",
-        "This command will devoice/dehalfop/deop you in the selected channel.",
-        "$uSee Also:$u downall, up, upall");
-"DOWNALL" ("/msg $C DOWNALL",
-        "Executes the $bdown$b command for each channel you have access to.",
-        "$uSee Also:$u down, up, upall");
-"DURATIONS" (
-        "This is the syntax used for commands that require time durations. A time duration is made up of numbers and units. Multiple units may be used in a row.",
-        "The valid unit letters are:",
-        "$by$b - years (365 days)",
-        "$bM$b - months (30 days)",
-        "$bw$b - weeks (7 days)",
-        "$bd$b - days (24 hours)",
-        "$bh$b - hours (60 minutes)",
-        "$bm$b - minutes (60 seconds)",
-        "$bs$b - seconds",
-        "If the unit letter is not given, seconds are assumed.",
-        "$b$b",
-        "$uExamples$u:",
-        "$b5d$b is 5 days.",
-        "$b1y2M$b is 1 year and 2 months (425 days.)",
-        "$b1d1h$b is 1 day and 1 hour (25 hours.)",
-        "$b1h25m30s$b is 1 hour, 25 minutes and 30 seconds."
-        );
-"EMOTE" ("/msg $C EMOTE <#channel|nick|*account> <text>",
-        "Makes $b$C$b send a CTCP ACTION message to the specified channel/nick or all users on the account.",
-        "$uSee Also:$u say");
-"EVENTS" ("/msg $C EVENTS <#channel> [limit [pattern]]",
-        "Allows channel coowners to view a list of events related to their channel. If a pattern is provided, only events with a matching description will be displayed.",
-	"$bNote:$b You must specify a limit if you want to use a pattern to match against.");
-"EXPIRE" ("/msg $C EXPIRE",
-        "Expires any channels that have not been visited within the configured duration. Channel registrations are automatically expired, so you only need to use this command if the duration has been changed.",
-        "$uSee Also:$u unvisited");
-"HELPERS" ("/msg $C HELPERS",
-        "Lists all the helpers currently online. Nicknames enclosed in parentheses are away, and likely unavailable.",
-        "$uSee Also:$u staff");
-"HLIST" ("/msg $C HLIST <#channel> [mask]",
-        "This command lists all users of level $bHalfop$b on a channel's userlist. If a mask is supplied, only halfops matching the mask will be shown.",
-        "$uSee Also:$u addhop, delhop, mdelhop, users");
-"HOP" ("/msg $C HOP <#channel> <nick> [nick]...",
-        "This command makes $C halfop the specified user.",
-        "$uSee Also:$u addhop, delhop, dehop");
-"INFO" ("/msg $C INFO <#channel>",
-        "This command responds with various pieces of information about a channel's users, status, and registration.");
-"INVITE" ("/msg $C INVITE <#channel> [nick [reason]]",
-        "Invites a user into the channel, sending them a reason if one is provided. However, unless you have at least $bmanager$b access, you can only invite yourself with this command. If no nick is provided, the user issuing the command will be invited.");
-"INVITEME" ("/msg $S INVITEME <#channel>",
-        "Invites you into the channel.");
-"IRCOPS" ("/msg $C IRCOPS",
-        "Lists all the IRC operators currently online. Nicknames enclosed in parentheses are away, and likely unavailable.",
-        "$uSee Also:$u staff");
-"KICK" ("/msg $C KICK <#channel> <mask|nick> [reason]",
-        "Kicks the users matching the given nick or mask with the specified reason. If no reason is provided, a default will be used.",
-        "$uSee Also:$u kickban");
-"KICKBAN" ("/msg $C KICKBAN <#channel> <mask|nick> [reason]",
-        "Kicks and bans with the specified reason any users with a matching nick or hostmask. If no reason is provided, a default one will be used.",
-        "$uSee Also:$u addban, kick");
-"MDELCOOWNER" ("/msg $C MDELCOOWNER <#channel> <pattern>",
-        "Deletes all coowners with accounts matching the given pattern from the channel user list.",
-        "$uSee Also:$u clist, delcoowner");
-"MDELHOP" ("/msg $C MDELHOP <#channel> <pattern>",
-        "Deletes all halfops with accounts matching the given pattern from the channel user list.");
-"MDELMANAGER" ("/msg $C MDELMANAGER <#channel> <pattern>",
-        "Deletes all managers with accounts matching the given pattern from the channel user list.",
-        "$uSee Also:$u mdelban, mdelcoowner, mdelop, mdelowner, mdelpal");
-"MDELOP" ("/msg $C MDELOP <#channel> <pattern>",
-        "Deletes all ops with accounts matching the given pattern from the channel user list.",
-        "$uSee Also:$u addop, mdelowner, mdelcoowner, mdelmanager");
-"MDELOWNER" ("/msg $C MDELOWNER <#channel> <pattern>",
-        "Deletes all owners with accounts matching the given pattern from the channel user list.",
-        "$uSee Also:$u addowner, mdelcoowner, mdelmanager, mdelop, mdelpal");
-"MDELPAL" ("/msg $C MDELPAL <#channel> <pattern>",
-        "Deletes all pals with accounts matching the given pattern from the channel user list.",
-        "$uSee Also:$u addpal, mdelcoowner, mdelmanager, mdelop");
-"MERGE" ("/msg $C MERGE <#channel> <destination> <nodelete>",
-        "Merges the source channel's registration, users, lamers, and other data into the target channel. Users with access to both the source and target channels will retain the higher access level; if the access levels are the same, the more recent seen time is kept. Lamers are also merged, with lamers expiring later taking precedence. If nodelete is added then the #channel won't be deleted after the merge.",
-        "$uSee Also:$u register, move, unregister");
-"MLIST" ("/msg $C MLIST <#channel> [mask]",
-        "This command lists all users of level $bManager$b on a channel's userlist. If a mask is supplied, only managers matching the mask will be shown.",
-        "$uSee Also:$u addmanager, delmanager, mdelmanager, users");
-"MODE" ("/msg $C MODE <#channel>",
-        "Resets the modes in the channel to their default.",
-        "$uSee Also:$u open, set");
-"MOVE" ("/msg $C MOVE <#channel> <destination>",
-        "Transfers a channel's registration to a different channel along with the settings and user/ban lists. All the restrictions that apply for the $bregister$b command apply to $bmove$b.",
-        "$uSee Also:$u register, merge, unregister");
-"NETINFO" ("/msg $C NETINFO",
-        "Displays some assorted pieces of information about network-wide $b$C$b statistics.",
-        "$uSee Also:$u info, staff");
-"NOREGISTER" ("/msg $C NOREGISTER <#channel|*Account> <duration> <reason>",
-        "With no arguments, lists the current do-not-register channels.",
-        "With arguments, adds a do-not-register channel (or account) with the specified reason.  In this case, the channel name may include * or ? wildcards.",
-        "The duration may be \"0\" to make it never expire; otherwise, the do-not-register entry will be automatically removed after $uduration$u.",
-        "$uSee Also:$u allowregister, register, dnrsearch, unregister");
-"NOTE" ("/msg $C NOTE <#channel> [<type> [new-note-text]]",
-        "With no arguments, lists all visible notes on the specified channel.",
-        "With one argument, lists the note type you name (if it is visible to you).",
-        "With two arguments, sets the note type (if you can set it).",
-        "$uSee Also:$u delnote, note types");
-"NOTE TYPES" ("$bNOTE TYPES$b",
-        "${notes}",
-        "$uSee Also:$u note, delnote");
-"OLIST" ("/msg $C OLIST <#channel> [mask]",
-        "This command lists all users of level $bOp$b on a channel's userlist.  If a mask is supplied, only ops matching the mask will be shown.",
-        "$uSee Also:$u addop, deluser, mdelop, users");
-"OP" ("/msg $C OP <#channel> <nick> [nick]...",
-        "This command makes $C op the specified user.",
-        "$uSee Also:$u addop, deluser, deop");
-"OPCHAN" ("/msg $C OPCHAN <#channel>",
-        "This command makes $C op itself in the specified channel.");
-"OPEN" ("/msg $C OPEN <#channel>",
-        "This command will make $C remove all modes preventing a user from the specified channel and remove all bans matching the users hostmask.",
-        "$uSee Also:$u unbanme");
-"PEEK" ("/msg $C PEEK <#channel>",
-        "Displays the current topic, modes, and ops of the specified channel. Unlike $binfo$b, $bpeek$b displays channel information unrelated to $b$C$b.",
-        "$uSee Also:$u info");
-"PLIST" ("/msg $C PLIST <#channel>",
-        "This command lists all users of level $bpal$b on a channel's userlist. If a mask is supplied, only pals matching the mask will be shown.",
-        "$uSee Also:$u addpal, delpal, mdelpal, users");
-
-"REGISTER" (
-        "/msg $C REGISTER <#channel>",
-        "Registers a channel to you with $b$C$b.  X3 will protect your channel, preserve your ownership of the channel and provide handy features such as userlists & stats.",
-        "If the channel exists, you must have ops (+o) and there is a limit to the number of channels you may have at once.",
-        "Network staff see /MSG $C HELP STAFF REGISTER",
-        "$uSee Also:$u unregister, giveownership");
-
-"STAFF REGISTER" (
-        "/msg $C REGISTER <#channel> [user|*account] [force]",
-        "Registers a channel to the given user with $b$C$b.",
-        "If staff provides the third argument, $bforce$b, it will allow the registration even if it is a do-not-register channel or their register limit will be exceeded.",
-        "$uSee Also:$u addowner, noregister, register, unregister");
-
-"REMOVENOTE" ("/msg $S REMOVENOTE <typename> [FORCE]",
-        "Permanently deletes a note type.  Without the argument $bFORCE$b, it will only delete an unused note type.  With the argument $bFORCE$b, it will delete the note from all channels and then delete the note type.",
-        "$uSee Also:$u createnote");
-
-"RESYNC" ("/msg $S RESYNC <#channel>",
-        "Synchronizes users in the channel with the userlist, according to the SET AUTOMODE setting.",
-        "It will give and take ops, halfops, and voice modes to users to make the channel match the userlist and automode setting.",
-        "$uSee Also:$u set automode, up, op, hop, voice");
-
-"SAY" ("/msg $C SAY <#channel|nick|*account> <text>",
-        "Makes $b$C$b send a message to the specified channel/nick or all users on the account.",
-        "$uSee Also:$u emote");
-"SEARCH CRITERIA" ("$bSEARCH CRITERIA$b",
-        "The following criteria may be used:",
-        "  NAME        Channels whose names match the given mask",
-        "  REGISTRAR   Channels whose registrar's account matches the given mask",
-        "  UNVISITED   Channels that have not been visited in at least the given duration",
-        "  REGISTERED  Channels that have been registered for less than the given duration",
-        "  FLAGS       Matches channels with the specified flag set",
-        "  LIMIT       Limit the number of channels returned by the search",
-        "Flags that can be matched against are: nodelete, suspended and unreviewed.",
-        "$uSee Also:$u search, search actions");
-"SEARCH ACTIONS" ("$bSEARCH ACTIONS$b",
-	"The following are valid $bsearch$b actions:",
-	"  PRINT       Prints matching channels",
-	"  COUNT       Prints the number of matching channels",
-	"$uSee Also:$u search, search criteria");
-"SEARCH" ("/msg $C SEARCH <action> <criteria> <value> [<criteria> <value>]...",
-        "Searches for channels which match the specified criteria. For a list of search actions, see $bsearch actions$b. For a list of the criteria, see $bsearch criteria$b.",
-        "$uSee Also:$u search actions, search criteria");
-"SEEN" ("/msg $C SEEN <#channel> <account>",
-        "This command will tell you if the selected user is in the channel, or when was the last time the user was seen in the channel.",
-        "$uSee Also:$u access, users");
-"SET" ("/msg $C SET <#channel> [<parameter> [setting]]",
-        "This command will set various channel options.  With no arguments, it will show the current values of all channel options.",
-        "DEFAULTTOPIC: The channel's default topic.",
-        "TOPICMASK:    A pattern that topics must match.",
-        "GREETING:     A greeting message for visitors to the channel.",
-        "USERGREETING: A greeting message for users on the channel's userlist.",
-        "MODES:        The channel's default modes.",
-	"PUBCMD:       Restrictions to use commands in public.",
-        "INVITEME:     Minimum level for users to use INVITEME, AUTOINVITE or AUTOJOIN.",
-        "USERINFO:     Minimum level for users to show an infoline on join.",
-        "ENFOPS:       Who can op users.",
-        "ENFHALFOPS:   Who can half-op users.",
-        "ENFMODES:     Who can change the channel modes.",
-        "ENFTOPIC:     Who can change the topic.",
-        "TOPICSNARF:   Manual topics changes (by /TOPIC) from users this level and above will change the default $b$C$b topic.",
-        "SETTERS:      Who may change channel settings (using $bSET$b).",
-        "CTCPREACTION: What happens when a CTCP is sent to the channel.",
-        "AUTOMODE:     Who should be auto-voice/hop/oped in the channel.",
-        "BANTIMEOUT:   Removes old bans.",
-        "PROTECT:      The protection level $b$C$b provides.",
-	"TOYS:         Toggles how $b$C$b will respond to toy commands (!8ball etc).",
-        "TOPICREFRESH: Controls if (and how often) $b$C$b will reset the topic.",
-        "RESYNC:       Controls if (and how often) $b$C$b will reset the userlist.",
-        "DYNLIMIT:     Adjusts user limit (+l channel mode) to prevent join floods.",
-	"MAXSETINFO:   Maximum amount of characters in a SETINFO line.",
-        "$bIRCOP ONLY$b:",
-        "NODELETE:  Prevents channel deletion.",
-        "UNREVIEWED:   Indicates channels that have not been manually reviewed.",
-        "If you wish to reset your channel to the default settings, you can use the $bSET DEFAULTS$b command.",
-        "$uSee Also:$u set pubcmd, set enfops, set enfhalfops, set enfmodes, set enftopic, set protect, set toys, set setters, set topicrefresh, set resync, set ctcpreaction, set maxsetinfo, set defaults");
-
-"SET DEFAULTTOPIC" ("/msg $C SET <#channel> DEFAULTTOPIC <New default topic>",
-        "This changes the default topic for the channel.  $C will set the IRC topic to this value when the $btopic$b command is used with no arguments, when the topic refresh happens (if you have $bset topicrefresh$b), or when an unauthorized user changes the topic to something else.",
-        "$uSee Also:$u set, set topicrefresh, set enftopic, set topicmask");
-
-"SET TOPICMASK" ("/msg $C SET <#channel> TOPICMASK <Topic mask with * and ?>",
-        "This sets a pattern that $C forces all topics to match. A $b*$b will match any number of characters (including 0); a $b?$b will match any single character -- the same as with IRC hostmasks.",
-        "For example, $b!set topicmask Hello *$b allows the topic to be set to $bHello world$b, but not $bGoodbye world$b.",
-        "You may \"escape\" those characters by putting a \\ before them in the topic mask; for example, $b!set topicmask Whassup\\?$b would only allow the topic to be $bWhassup?$b, while leaving out the \\ would allow the topic to be $bWhassup!$b (among other things).",
-        "If the TopicMask has only one * and no ?, then using:",
-        " $btopic something$b",
-        "will replace the * with the text $bsomething$b.",
-        "$uSee Also:$u set, set topic, set enftopic");
-
-"SET TOYS" ("/msg $C SET <#channel> TOYS <value>",
-	"This setting changes how $C will respond to commands like 8ball, or whether it responds at all.  Valid settings are:",
-	"$b0$b  Toys are completely disabled.",
-	"$b1$b  Toys will only reply privately.",
-	"$b2$b  Toys will reply publicly.",
-	"$uSee Also:$u set");
-
-"SET PUBCMD" ("/msg $C SET <#channel> PUBCMD <value>",
-        "This setting restricts the access necessary to use in-channel commands.  It is a numeric user level, or 501 to mean no one may use public commands.",
-        "$uSee Also:$u set");
-
-"SET ENFOPS" ("/msg $C SET <#channel> ENFOPS <value>",
-        "This setting restricts who may op users who are not at least ops on the userlist.  If $C sees someone with access below the specified access op someone not on the userlist (or who is a pal), it will deop the second user.  It is a numeric user level, or 501 to mean no one may op unrecognized users.",
-        "$uSee Also:$u set");
-
-"SET ENFHALFOPS" ("/msg $C SET <#channel> ENFHALFOPS <value>",
-        "This setting restricts who may halfop users who are not at least halfops on the userlist.  If $C sees someone with access below the specified access halfop someone not on the userlist (or who is a pal), it will dehalfop the second user.  It is a numeric user level, or 501 to mean no one may op unrecognized users.",
-        "$uSee Also:$u set");
-
-"SET ENFMODES" ("/msg $C SET <#channel> ENFMODES <value>",
-        "This setting restricts the minimum access someone must have to change the channel modes from what is specified in the channel settings.  It is a numeric user level, or 501 to mean no one may override the default modes.",
-        "$uSee Also:$u set");
-
-"SET ENFTOPIC" ("/msg $C SET <#channel> ENFTOPIC <value>",
-        "This setting restricts the minimum access someone must have to change the channel topic.  It is a numeric user level, or 501 to mean no one may override the default topic.",
-        "If a topic mask is set, then a person may change the topic as long as it matches that mask $bor$b they have the above access.",
-        "If no topic mask is set, then a person must have the above access to change the topic from the default.",
-        "$uSee Also:$u set, set topic, set topicmask");
-
-"SET MAXSETINFO" ("/msg $C SET <#channel> MAXSETINFO <value>",
-	"This setting restricts the length of user info lines.",
-        "$uSee Also:$u set");
-
-"SET AUTOMODE" ("/msg $C SET <#channel> AUTOMODE <value>",
-        "This setting configures who $C gives different channel modes to on join or RESYNC.  ",
-        "Valid settings are:",
-        "  $b0$b  Noone will be automatically oped, half-oped, or voiced.",
-        "  $b1$b  Give voice to pals, half-op to halfops, and op to ops.",
-        "  $b2$b  #1 Plus Give voice to everyone.",
-        "  $b3$b  #1 Plus give halfops to everyone.",
-        "  $b4$b  #1 Plus give ops to everyone (not advised.)",
-        "  $b5$b  Give half-op to halfops, and op to ops only, but pals do not get voice. ",
-        "  $b6$b  Just voice everyone with access.  ",
-        "$uSee Also:$u set, up, uset autoop, resync");
-
-"SET BANTIMEOUT" ("/msg $C SET <#channel> BANTIMEOUT <value>",
-        "This setting configures $C to automatically remove bans older than the set age. It is useful for avoiding buildup of old bans, eventually running out of ban slots.",
-        "Valid settings are:",
-        "  $b0$b  Does not remove bans",
-        "  $b1$b  Bans will be removed after 10 minutes",
-        "  $b2$b  Bans will be removed after 2 hours",
-        "  $b3$b  Bans will be removed after 4 hours",
-        "  $b4$b  Bans will be removed after 24 hours",
-        "  $b5$b  Bans will be removed after 1 week",
-        "It should be noted that this setting expires channel bans (mode +b) NOT permanently banned \"LAMERs\", although it will expire the individual host-bans $C sets on those who match LAMER entries.",
-        "$uSee Also:$u unban, addlamer, addtimedlamer");
-
-"SET PROTECT" ("/msg $C SET <#channel> PROTECT <value>",
-        "This setting restricts the protection that $C enforces.  Valid settings are:",
-        "$b0$b  Non-users and users will be protected from those of equal or lower access",
-        "$b1$b  Users will be protected from those of equal or lower access.",
-        "$b2$b  Users will be protected from those of lower access.",
-        "$b3$b  No users will be protected.",
-        "$uSee Also:$u set");
-
-"SET SETTERS" ("/msg $C SET <#channel> SETTERS <value>",
-        "Users with at least this user level can use the $bset$b command for $C.",
-        "$uSee Also:$u set");
-
-"SET TOPICREFRESH" ("/msg $C SET <#channel> TOPICREFRESH <value>",
-        "This setting controls if (and how often) $C refreshes the topic to the default value.  Valid settings are:",
-        "$b0$b  Never refresh topic.",
-        "$b1$b  Refresh every 3 hours.",
-        "$b2$b  Refresh every 6 hours.",
-        "$b3$b  Refresh every 12 hours.",
-        "$b4$b  Refresh every 24 hours.",
-        "$uSee Also:$u set, set topic");
-
-"SET RESYNC" ("/msg $C SET <#channel> RESYNC <value>",
-        "This setting controls if (and how often) $C refreshes the userlist to the current list.  Valid settings are:",
-        "$b0$b  Never refresh userlist.",
-        "$b1$b  Refresh every 3 hours.",
-        "$b2$b  Refresh every 6 hours.",
-        "$b3$b  Refresh every 12 hours.",
-        "$b4$b  Refresh every 24 hours.",
-        "$uSee Also:$u set");
-
-"SET CTCPREACTION" ("/msg $C SET <#channel> CTCPREACTION <value>",
-        "This setting controls what happens to those who send disallowed CTCPs to the channel:",
-        "$b0$b  CTCPs are allowed. Do nothing.",
-        "$b1$b  Kick on disallowed CTCPs.",
-        "$b2$b  Kickban on disallowed CTCPs.",
-        "$b3$b  Short timed ban (defaults to 3 minutes) on disallowed CTCPs.",
-        "$b4$b  Long timed ban (defaults to 1 hour) on disallowed CTCPs.",
-        "$uSee Also:$u set");
-
-"SET DEFAULTS" ("/msg $C SET <#channel> DEFAULTS [<confirmation>]",
-        "With the proper confirmation string, resets all the options for the channel to their default values.",
-        "With no confirmation string, displays the appropriate confirmation string.",
-        "$uSee Also:$u set");
-
-"SET GREETING" ("/msg $C SET <#channel> GREETING <message>",
-        "Sets a message X3 will send to everyone who joins your channel, unless they are on your userlist.",
-        "This feature should be used sparingly, as many people find it annoying.",
-        "Another set command, SET USERGREETING, is shown to people who ARE on your userlist.",
-        "$uSee Also:$u set usergreeting");
-
-"SET USERGREETING" ("/msg $C SET <#channel> USERGREETING <message>",
-        "Sets a message X3 will send to your users (PALs, OPs, etc) when they join your channel.",
-        "This feature should be used sparingly, as many people find it annoying.",
-        "Another set command, SET GREETING, is shown to people who are NOT on your userlist.",
-        "$uSee Also:$u set greeting");
-
-"STAFF" ("/msg $C STAFF",
-        "Lists all the IRC operators and helpers currently online. Nicknames enclosed in parentheses are away, and likely unavailable.",
-        "$uSee Also:$u helpers, ircops, netinfo");
-
-"SUSPEND" ("/msg $C SUSPEND <#channel> <nick|*account> <duration>",
-        "This disables the target's access to the channel.  That access can be restored using the unsuspend command.",
-        "The duration may be \"0\" to make it never expire; otherwise, $C will automatically unsuspend the user after the duration",
-        "$uSee Also:$u durations, unsuspend, deluser");
-
-"TOPIC" ("/msg $C TOPIC <#channel> [topic]",
-        "Sets the current topic for the specified channel.  If no topic is specified, then set the current topic to the default topic.");
-
-"TRIM" ("/msg $C TRIM <#channel> <target> <duration> [vacation]",
-	"The trim command removes target objects inactive for more than a certain duration from a channel. The target must be a channel access level, a range of access levels (for example, \"300-399\"), \"users\" or \"lamers\". The duration argument specifies the amount of time the target has been inactive for to be removed.",
-        "If the vacation argument is given for the users target, users who are on vacation will be trimmed. By default, they are skipped.",
-        "$uSee Also:$u durations");
-
-"UNBAN" ("/msg $C UNBAN <#channel> <mask|nick>",
-        "Unbans the specified nick or hostmask. If a nick is given, $b$C$b determines what hostmask(s) to unban.",
-        "$uSee Also:$u ban, kick, kickban");
-
-"UNBANALL" ("/msg $C UNBANALL <#channel>",
-        "Clears the specified channel's banlist. If the channel is omitted, then $bunbanall$b will be done in the channel where the command was given.",
-        "$uSee Also:$u ban, unban, unbanme");
-"UNBANME" ("/msg $C UNBANME <#channel>",
-        "Unbans your hostmask from the specified channel.",
-        "$uSee Also:$u ban, unban");
-"UNREGISTER" ("/msg $C UNREGISTER <#channel> [<confirmation>]",
-        "Unregisters a channel that is registered with $b$C$b. $bIMPORTANT$b: Once the channel is unregistered, the userlist $bcannot$b be recovered.",
-        "If you are not network staff, you must add a confirmation string to the end of your line to confirm the unregistration.  If you leave it out, $C will show the proper confirmation string.",
-        "$uSee Also:$u register");
-"UNSUSPEND" ("/msg $C UNSUSPEND <#channel> <nick|*account>",
-        "This restores the target's access to the channel (after it has been suspended).",
-        "$uSee Also:$u suspend, deluser");
-"UNVISITED" ("/msg $C UNVISITED [duration] [limit]",
-        "Displays up to a certain limit, all channels registered with $b$C$b that have not been visited within a certain duration. If a duration is not provided, a default will be used.",
-        "$uSee Also:$u expire, search, durations");
-"UP" ("/msg $C UP <#channel>",
-        "Grants you your normal channel privileges.  Ops for OPs, HalfOps for HALFOPs, and Voice for PALs.");
-"UPALL" ("/msg $C UPALL",
-        "Executes the $bup$b command for each channel you have access in.",
-        "$uSee Also:$u up, down, downall");
-"USET"  ("/msg $C USET <#channel> [<option> [<setting>]]",
-         "The $buset$b command allows you to toggle various channel user settings. With no arguments, it will print the current values of all channel user options.",
-         "$bOptions:$b",
-         "INFO:       Sets the infoline that $C sends when you join the channel.",
-         "AUTOOP:     Enable or disable $C automatically opping you upon joining or authenticating.",
-	 "AUTOINVITE: $C will invite you to this channel if you have access to and are not in when you authenticate if this setting is on.",
-	 "AUTOJOIN: $C will forcibly join you into this channel if you have access to and are not in it when you authenticate if this setting is on.",
-         "$uSee Also:$u set");
-"USET INFO" ("/msg $C USET <#channel> INFO <info>",
-        "This command will set a user defined information message to be displayed when you join the channel. Set to '*' to clear the message.",
-        "Note: to keep from being annoying, your info message only shows when you have been offline for more than a few minutes.",
-        "$uSee Also:$u access");
-"USERS" ("/msg $C USERS <#channel> [mask]",
-        "Displays the userlist for the specified channel. If a mask is supplied, only users matching the mask will be shown.",
-        "$uSee Also:$u clist, mlist, olist, plist, wlist");
-"VOICE" ("/msg $C VOICE <#channel> <nick> [nick]...",
-        "Voices the specified nick in the specified channel. If the channel is omitted, then $bvoice$b will be done in the channel where the command was given.",
-        "$uSee Also:$u devoice");
-"WIPEINFO" ("/msg $C WIPEINFO <#channel> <nick|*account>",
-        "Removes the named user's infoline in the channel.");
-"WLIST" ("/msg $C WLIST <#channel> [mask]",
-        "This command lists all users of level $bOwner$b on a channel's userlist. If a mask is supplied, only owners matching the mask will be shown.",
-        "$uSee Also:$u addcoowner, delcoowner, mdelcoowner, users");
-
-"ME"	"I am at your service. /msg $C help command, or /join #help ";
-
-"thanks" ("AfterNET's own X3 is based on the hard work of the original srvx developers.  They would like to thank the following people for their help in making the original srvx:",
-        "     $bGameSurge IRC Network$b - All the users and staff there bear with our shortcomings and bugs and let us know what needs to be fixed.",
-        "     $bIC5 Networks$b (and JohnM in particular) - Never afraid to critique things, even if we are the 800-pound gorilla.",
-        "     $bMeeko, eraser, hock(ey), KilledInAction, MadEwokHerd, Milon and Shoat$b - Hardcore beta testing and bug finding on the testnet.",
-        "     $bCrips and feigling$b - Reading through all the boring messages and finding ways to make them clearer.",
-        "Futher, the X3 team would like to thank:",
-        "     $breed$b - who tirelessly nagged us to upgrade our services",
-        "$bAfterNET Users and Opers$b - who fought both for and against the change, for the better of Afternet.");
-
-"MODES" (
-        "/msg $C HELP MODES <option>",
-        "This command will return information for either:",
-        "CHANNEL: Channel mode(s).",
-        "USER:    User mode(s).",
-        "$b$b",
-        "See MODES USER, and MODES CHANNEL for the meaning of modes.",
-        "$uSee also:$u set",
-        );
-
-"MODES USER" (
-        "*a - IRC administrator.",
-        " d - Deaf mode. All #channel messages are ignored.",
-        "*f - Fake host mode. ($bInvisible mode, will not be visibly set. Can only be set by a U:lined service.$b)",
-        " g - Allows you to see desynch wallops.",
-        "*h - Sethost mode. ($bInvisible mode, will not be visibly set.$b)",
-        " i - Invisible. A user will not be able to see you in /names or /who list(s). They $bmust$b know your exact nick.",
-        " k - Network service. You cannot be deopped, kicked or killed.",
-        "*n - Channels will not be shown in a user(s) /whois reply.",
-        " o - Global IRC operator.",
-        " r - Registered user. ($bInvisible mode, will not be visibly set. Can only be set by a U:lined service.$b)",
-        " s - Server notices.",
-        " w - See wallops and wallusers messages.",
-        " x - Real host will be obfuscated if authed to $N. ($bFixed mode, cannot be unset.$b)",
-        "*B - User is a bot.",
-        "*I - Idle time will not be shown in a user(s) /whois reply.",
-        "*O - Local IRC operator. ($bDeprecated and disabled. *ALL* IRC operators are global.$b)",
-        "*R - Only registered user(s) are allowed to message you.",
-        "*W - /whois paranoia. IRC operators are informed of a /whois taking place on them. ($bDisabled.$b)",
-        "*X - Extra oper. Gives extra abilities and privileges to IRC operators.",
-        "$b$b",
-        "$bNote:$b * indicates that the mode is only available on some networks."
-        );
-
-"MODES CHANNEL" (
-        "*a - IRC administrators only. ($bCan only be set by IRC administrators/operators. Can be overridden by /invite.$b)",
-        " b - Bans a user from a channel. ($bCan be overridden by /invite.$b)",
-        "*c - Incoming colour messages to the channel are blocked.",
-        "*e - Excludes a user from being banned from a channel. If they're +b'd and +e'd, they will still be able to join.",
-        "*h - Gives a user hop status. ($b%%$b)",
-        " i - Invite only. A user must be /invite'd to the channel in order to join.",
-        " k - Channel requires a key in order to join. ($bCan be overridden by /invite.$b)",
-        " l - Limit. Only a certain number of user(s) are allowed to join the channel. ($bCan be overridden by /invite.$b)",
-        " m - Moderated. Nobody other than hops ($b%%$b), ops ($b@$b) or voices ($b+$b) can talk.",
-        " n - All external messages will be blocked. ($bMust be in the channel in order to talk.$b)",
-        " o - Gives a user op status. ($b@$b)",
-        " p - Private. The channel will not appear in /list but will appear in /whois replies.",
-        " r - A user must be registered in order to join the channel. ($bCan be overridden by /invite.$b)",
-        " s - Secret. The channel will not appear in /list and /whois replies.",
-        " t - Only op(s) can change the topic.",
-        " v - Gives a user voice status. ($b+$b)",
-        "*z - Persistent channel. Once the last user has left, the channel will not be destroyed. ($bDisabled.$b)",
-        "*C - /ctcp messages to the channel are blocked.",
-        "*L - Mode(s) will not be displayed in /list.",
-        "*M - Only registered user(s) are allowed to talk in a channel. (Excludes hops ($b%%$b), ops ($b@$b) and voices. ($b+$b))",
-        "*N - /notices to the channel are blocked.",
-        "*O - IRC operators only. ($bCan only be set by either $C or IRC administrators/operators. Can be overridden by /invite.$b)",
-        "*Q - Part and quit messages will not be displayed in a channel.",
-        "*S - Bold, colour, reverse and underline code(s) are stripped from incoming messages.",
-        "*T - /amsgs to the channel are blocked.",
-        "*Z - SSL user(s) only. ($bCan only be set by either $C or those on an SSL connection.$b)",
-        "$b$b",
-        "$bNote:$b * indicates that the mode is only available on some networks."
-        );
+"VLIST" ("$bVLIST$b <#channel>",
+         "Lists channel voices (access 1-99).");
+"CSEARCH" ("$bCSEARCH$b <criteria>",
+           "Search channel registrations by name, registrar, or flags. Staff only.",
+           "Example: CSEARCH name #test*");
+"MOVE" ("$bMOVE$b <#old> <#new>",
+        "Transfers a channel registration to a new channel name. Staff only.");
+"MERGE" ("$bMERGE$b <#source> <#target>",
+         "Merges the access list from source into target. Source is dropped. Staff only.");
+"INVITEME" ("$bINVITEME$b <#channel>",
+            "Invites yourself to the channel if it is +i. Requires the INVITEME access level.");
+"PROTECT" ("$bPROTECT$b <#channel> [nick]",
+           "Gives protect (+a) to the specified user, or yourself if no nick given. Requires coowner access (400+).");
+"DEPROTECT" ("$bDEPROTECT$b <#channel> [nick]",
+             "Removes protect (+a) from the specified user, or yourself if no nick given.");
+"OWNER" ("$bOWNER$b <#channel> [nick]",
+         "Gives owner (+q) to the specified user, or yourself if no nick given. Requires owner access (500).");
+"DEOWNER" ("$bDEOWNER$b <#channel> [nick]",
+           "Removes owner (+q) from the specified user, or yourself if no nick given.");

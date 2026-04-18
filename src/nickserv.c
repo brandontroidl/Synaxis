@@ -1,7 +1,7 @@
 /* nickserv.c - Nick/authentication service
  * Copyright 2000-2004 srvx Development Team
  *
- * This file is part of x3.
+ * This file is part of Synaxis (formerly x3).
  *
  * x3 is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,11 +22,13 @@
 #include "chanserv.h"
 #include "conf.h"
 #include "config.h"
+#include "crypto.h"
 #include "global.h"
 #include "modcmd.h"
 #include "opserv.h" /* for gag_create(), opserv_bad_channel() */
 #include "saxdb.h"
 #include "mail.h"
+#include "sno_masks.h"
 #include "timeq.h"
 #include "x3ldap.h"
 
@@ -348,7 +350,7 @@ static const struct message_entry msgtab[] = {
     { "NSMSG_RECLAIM_KILL", "Unauthenticated user of nick." },
     { "NSMSG_RECLAIMED_NONE", "You cannot manually reclaim a nick." },
     { "NSMSG_RECLAIMED_WARN", "Sent a request for %s to change their nick." },
-    { "NSMSG_RECLAIMED_SVSNICK", "Forcibly changed %s's nick." },
+    { "NSMSG_RECLAIMED_SANICK", "Forcibly changed %s's nick." },
     { "NSMSG_RECLAIMED_KILL",  "Disconnected %s from the network." },
     { "NSMSG_CLONE_AUTH", "Warning: %s (%s@%s) authed to your account." },
     { "NSMSG_SETTING_LIST", "$b$N account settings$b" },
@@ -956,55 +958,7 @@ reg_handle_rename_func(handle_rename_func_t func, void *extra)
     rf_list_extra[rf_list_used++] = extra;
 }
 
-static char *
-generate_fakehost(struct handle_info *handle)
-{
-    struct userNode *target;
-    extern const char *hidden_host_suffix;
-    static char buffer[HOSTLEN+1];
-    char *data;
-    int style = 1;
 
-    if (!handle->fakehost) {
-        data = conf_get_data("server/hidden_host_type", RECDB_QSTRING);
-        if (data)
-            style = atoi(data);
-
-        if ((style == 1) || (style == 3))
-            snprintf(buffer, sizeof(buffer), "%s.%s", handle->handle, hidden_host_suffix);
-        else if (style == 2) {
-            /* Due to the way fakehost is coded theres no way i can
-               get the exact user, so for now ill just take the first
-               authed user. */
-            for (target = handle->users; target; target = target->next_authed)
-               break;
-
-            if (target)
-               snprintf(buffer, sizeof(buffer), "%s", target->crypthost);
-            else
-               strncpy(buffer, "none", sizeof(buffer));
-        }
-        return buffer;
-    } else if (handle->fakehost[0] == '.') {
-        /* A leading dot indicates the stored value is actually a title. */
-        snprintf(buffer, sizeof(buffer), "%s.%s.%s", handle->handle, handle->fakehost+1, nickserv_conf.titlehost_suffix);
-        return buffer;
-    }
-    return handle->fakehost;
-}
-
-static void
-apply_fakehost(struct handle_info *handle)
-{
-    struct userNode *target;
-    char *fake;
-
-    if (!handle->users)
-        return;
-    fake = generate_fakehost(handle);
-    for (target = handle->users; target; target = target->next_authed)
-        assign_fakehost(target, fake, 1);
-}
 
 void send_func_list(struct userNode *user)
 {
@@ -1087,7 +1041,7 @@ set_user_handle_info(struct userNode *user, struct handle_info *hi, int stamp)
 
         /* Set the fakehost */
         if (hi->fakehost || old_info)
-            apply_fakehost(hi);
+            { struct userNode *u; for (u = hi->users; u; u = u->next_authed) assign_fakehost(u, hi->fakehost, 0); }
 
         if (stamp) {
 #ifdef WITH_PROTOCOL_P10
@@ -1137,7 +1091,7 @@ nickserv_register(struct userNode *user, struct userNode *settee, const char *ha
 {
     struct handle_info *hi;
     struct nick_info *ni;
-    char crypted[MD5_CRYPT_LENGTH] = "";
+    char crypted[PASSWD_HASH_LENGTH+1] = "";
 
     if ((hi = dict_find(nickserv_handle_dict, handle, NULL))) {
         if(user)
@@ -1157,7 +1111,7 @@ nickserv_register(struct userNode *user, struct userNode *settee, const char *ha
         if (!is_secure_password(handle, passwd, user))
             return 0;
 
-        cryptpass(passwd, crypted);
+        crypto_hash_password(passwd, crypted, sizeof(crypted));
     }
 #ifdef WITH_LDAP
     /* When ldap_writeback is enabled, add new registrations to LDAP.
@@ -1391,7 +1345,7 @@ static NICKSERV_FUNC(cmd_register)
     irc_in_addr_t ip;
     struct handle_info *hi;
     const char *email_addr, *password;
-    char syncpass[MD5_CRYPT_LENGTH];
+    char syncpass[PASSWD_HASH_LENGTH+1];
     int no_auth, weblink;
 
     if (checkDefCon(DEFCON_NO_NEW_NICKS) && !IsOper(user)) {
@@ -1528,7 +1482,7 @@ static NICKSERV_FUNC(cmd_register)
     user->modes |= FLAGS_REGISTERING; 
 
     if (nickserv_conf.sync_log) {
-      cryptpass(password, syncpass);
+      crypto_hash_password(password, syncpass, sizeof(syncpass));
       /*
       * An 0 is only sent if theres no email address. Thios should only happen if email functions are
        * disabled which they wont be for us. Email Required MUST be set on if you are using this.
@@ -1564,7 +1518,7 @@ static NICKSERV_FUNC(cmd_oregister)
         return 0;
     }
     if (nickserv_conf.email_required) {
-        NICKSERV_MIN_PARMS(4);
+        NICKSERV_MIN_PARMS(3);
         email = argv[3];
         if (argc > 4) {/* take: "acct pass email mask nick" or "acct pass email mask" or "acct pass email nick" */
             if (strchr(argv[4], '@'))
@@ -2192,7 +2146,7 @@ struct handle_info *loc_auth(char *sslfp, char *handle, char *password, char *us
 #else
     if (password && *password) {
 #endif
-        if (checkpass(password, hi->passwd))
+        if (crypto_verify_password(password, hi->passwd) == 1)
             auth++;
     }
     
@@ -2504,9 +2458,9 @@ static NICKSERV_FUNC(cmd_auth)
 
 #ifdef WITH_LDAP
     if(( ( nickserv_conf.ldap_enable && ldap_result == LDAP_INVALID_CREDENTIALS )  ||
-        ( (!nickserv_conf.ldap_enable) && (!checkpass(passwd, hi->passwd)) ) ) && !sslfpauth) {
+        ( (!nickserv_conf.ldap_enable) && (crypto_verify_password(passwd, hi->passwd) != 1) ) ) && !sslfpauth) {
 #else
-    if (!checkpass(passwd, hi->passwd) && !sslfpauth) {
+    if (crypto_verify_password(passwd, hi->passwd) != 1 && !sslfpauth) {
 #endif
         unsigned int n;
         send_message_type(4, user, cmd->parent->bot,
@@ -2552,8 +2506,14 @@ static NICKSERV_FUNC(cmd_auth)
         reply("NSMSG_PLEASE_SET_EMAIL");
     if (!sslfpauth && !is_secure_password(hi->handle, passwd, NULL))
         reply("NSMSG_WEAK_PASSWORD");
-    if (!sslfpauth && (hi->passwd[0] != '$'))
-        cryptpass(passwd, hi->passwd);
+    /* Auto-migrate legacy MD5 hashes to Argon2id on successful auth */
+    if (!sslfpauth && crypto_is_legacy_hash(hi->passwd)) {
+        char upgraded[PASSWD_HASH_LENGTH+1];
+        if (crypto_hash_password(passwd, upgraded, sizeof(upgraded)) == 0) {
+            strcpy(hi->passwd, upgraded);
+            log_module(NS_LOG, LOG_INFO, "Upgraded password hash to Argon2id for account %s", hi->handle);
+        }
+    }
 
    /* If a channel was waiting for this user to auth, 
     * finish adding them */
@@ -2757,7 +2717,7 @@ static NICKSERV_FUNC(cmd_odelcookie)
 static NICKSERV_FUNC(cmd_resetpass)
 {
     struct handle_info *hi;
-    char crypted[MD5_CRYPT_LENGTH];
+    char crypted[PASSWD_HASH_LENGTH+1];
     int weblink;
 
     NICKSERV_MIN_PARMS(3);
@@ -2784,7 +2744,7 @@ static NICKSERV_FUNC(cmd_resetpass)
         reply("MSG_SET_EMAIL_ADDR");
         return 0;
     }
-    cryptpass(argv[2], crypted);
+    crypto_hash_password(argv[2], crypted, sizeof(crypted));
     argv[2] = "****";
     nickserv_make_cookie(user, hi, PASSWORD_CHANGE, crypted, weblink);
     return 1;
@@ -2965,7 +2925,7 @@ static NICKSERV_FUNC(cmd_pass)
 {
     struct handle_info *hi;
     char *old_pass, *new_pass;
-    char crypted[MD5_CRYPT_LENGTH+1];
+    char crypted[PASSWD_HASH_LENGTH+1];
 #ifdef WITH_LDAP
     int ldap_result;
 #endif
@@ -2989,12 +2949,12 @@ static NICKSERV_FUNC(cmd_pass)
         }
     }else
 #endif
-    if (!checkpass(old_pass, hi->passwd)) {
+    if (crypto_verify_password(old_pass, hi->passwd) != 1) {
         argv[1] = "BADPASS";
 	reply("NSMSG_PASSWORD_INVALID");
 	return 0;
     }
-    cryptpass(new_pass, crypted);
+    crypto_hash_password(new_pass, crypted, sizeof(crypted));
 #ifdef WITH_LDAP
     if(nickserv_conf.ldap_enable && nickserv_conf.ldap_admin_dn && nickserv_conf.ldap_writeback) {
         int rc;
@@ -3244,7 +3204,7 @@ set_list(struct svccmd *cmd, struct userNode *user, struct handle_info *hi, int 
     char *set_display[] = {
         "INFO", "WIDTH", "TABLEWIDTH", "COLOR", "PRIVMSG", "STYLE",
         "EMAIL", "ANNOUNCEMENTS", "AUTOHIDE", "MAXLOGINS", "LANGUAGE",
-        "FAKEHOST", "TITLE", "EPITHET", "ADVANCED"
+        "ADVANCED" /* FAKEHOST, TITLE, EPITHET moved to HostServ */
     };
 
     reply("NSMSG_SETTING_LIST");
@@ -3468,7 +3428,7 @@ static OPTION_FUNC(opt_announcements)
 
 static OPTION_FUNC(opt_password)
 {
-    char crypted[MD5_CRYPT_LENGTH+1];
+    char crypted[PASSWD_HASH_LENGTH+1];
     if(argc < 2) {
        return 0;
     }
@@ -3478,7 +3438,7 @@ static OPTION_FUNC(opt_password)
 	return 0;
     }
 
-    cryptpass(argv[1], crypted);
+    crypto_hash_password(argv[1], crypted, sizeof(crypted));
 #ifdef WITH_LDAP
     if(nickserv_conf.ldap_enable && nickserv_conf.ldap_admin_dn && nickserv_conf.ldap_writeback) {
         int rc;
@@ -3710,120 +3670,9 @@ static OPTION_FUNC(opt_level)
     return res;
 }
 
-static OPTION_FUNC(opt_epithet)
-{
-    if ((argc > 1) && oper_has_access(user, nickserv, nickserv_conf.set_epithet_level, 0)) {
-        char *epithet;
-        struct userNode *target, *next_un;
+/* REMOVED: moved to HostServ (mod-hostserv.c) */
 
-        if (!override) {
-            if (!(noreply))
-                reply("MSG_SETTING_PRIVILEGED", argv[0]);
-            return 0;
-        }
-
-        epithet = unsplit_string(argv+1, argc-1, NULL);
-
-        if (hi->epithet)
-            free(hi->epithet);
-        if ((epithet[0] == '*') && !epithet[1])
-            hi->epithet = NULL;
-        else
-            hi->epithet = strdup(epithet);
-
-        for (target = hi->users; target; target = next_un) {
-          irc_swhois(nickserv, target, hi->epithet);
-
-          next_un = target->next_authed;
-        }
-    }
-
-    if (!(noreply)) {
-        if (hi->epithet)
-            reply("NSMSG_SET_EPITHET", hi->epithet);
-        else
-            reply("NSMSG_SET_EPITHET", user_find_message(user, "MSG_NONE"));
-    }
-    return 1;
-}
-
-static OPTION_FUNC(opt_title)
-{
-    char *title;
-    const char *none = NULL;
-    char *sptr;
-
-    if ((argc > 1) && oper_has_access(user, nickserv, nickserv_conf.set_title_level, 0)) {
-        if (!override) {
-            if (!(noreply))
-                reply("MSG_SETTING_PRIVILEGED", argv[0]);
-            return 0;
-        }
-
-        title = argv[1];
-        if(!strcmp(title, "*")) {
-            free(hi->fakehost);
-            hi->fakehost = NULL;
-        }
-        else {
-            if (strchr(title, '.')) {
-                if (!(noreply))
-                    reply("NSMSG_TITLE_INVALID");
-                return 0;
-            }
-            /* Alphanumeric titles only. */
-            for(sptr = title; *sptr; sptr++) {
-                if(!isalnum(*sptr) && *sptr != '-') {
-                    if (!(noreply))
-                        reply("NSMSG_TITLE_INVALID");
-                    return 0;
-                }
-            }
-            if ((strlen(user->handle_info->handle) + strlen(title) +
-                 strlen(nickserv_conf.titlehost_suffix) + 2) > HOSTLEN) {
-                if (!(noreply))
-                    reply("NSMSG_TITLE_TRUNCATED");
-                return 0;
-            }
-            free(hi->fakehost);
-            hi->fakehost = malloc(strlen(title)+2);
-            hi->fakehost[0] = '.';
-            strcpy(hi->fakehost+1, title);
-        }
-        apply_fakehost(hi);
-    } else if (hi->fakehost && (hi->fakehost[0] == '.'))
-        title = hi->fakehost + 1;
-    else {
-        /* If theres no title set then the default title will therefore
-           be the first part of hidden_host in x3.conf, so for
-           consistency with opt_fakehost we will print this here.
-           This isnt actually used in P10, its just handled to keep from crashing... */
-        char *hs, *hidden_suffix, *rest;
-
-        hs = conf_get_data("server/hidden_host", RECDB_QSTRING);
-        hidden_suffix = strdup(hs);
-
-        /* Yes we do this twice */
-        if((rest = strchr(hidden_suffix, '.')))
-        {
-            *rest = '\0';
-            title = hidden_suffix;
-        }
-        else
-        {
-            /* A lame default if someone configured hidden_host to something lame */
-            title = strdup("users");
-            free(hidden_suffix);
-        }
-
-    }
-
-    if (!title)
-        none = user_find_message(user, "MSG_NONE");
-    if (!(noreply))
-        send_message(user, nickserv, "NSMSG_SET_TITLE", title ? title : none);
-    return 1;
-}
+/* REMOVED: moved to HostServ (mod-hostserv.c) */
 
 int 
 check_vhost(char *vhost, struct userNode *user, struct svccmd *cmd) 
@@ -3889,50 +3738,7 @@ check_vhost(char *vhost, struct userNode *user, struct svccmd *cmd)
    return 1;
 }
 
-static OPTION_FUNC(opt_fakehost)
-{
-    const char *fake;
-
-    if ((argc > 1) && oper_has_access(user, nickserv, nickserv_conf.set_fakehost_level, 0)) {
-        if (!override) {
-            if (!(noreply))
-                reply("MSG_SETTING_PRIVILEGED", argv[0]);
-            return 0;
-        }
-
-        fake = argv[1];
-        if ((strlen(fake) > HOSTLEN) || (fake[0] == '.')) {
-            if (!(noreply))
-                reply("NSMSG_FAKEHOST_INVALID", HOSTLEN);
-            return 0;
-        }
-        if (!strcmp(fake, "*")) {
-            if(hi->fakehost) {
-                free(hi->fakehost);
-                hi->fakehost = NULL;
-            }
-        } 
-        else if (!check_vhost(argv[1], user, cmd))  {
-            /* check_vhost takes care of error reply */
-            return 0;
-        }
-        else {
-            if(hi->fakehost)
-                free(hi->fakehost);
-            hi->fakehost = strdup(fake);
-        }
-        apply_fakehost(hi);
-        fake = hi->fakehost;
-    } else
-        fake = generate_fakehost(hi);
-
-    /* Tell them we set the host */
-    if (!fake)
-        fake = user_find_message(user, "MSG_NONE");
-    if (!(noreply))
-        reply("NSMSG_SET_FAKEHOST", fake);
-    return 1;
-}
+/* REMOVED: moved to HostServ (mod-hostserv.c) */
 
 static OPTION_FUNC(opt_note)
 {
@@ -3989,7 +3795,7 @@ static NICKSERV_FUNC(cmd_reclaim)
     switch (nickserv_conf.reclaim_action) {
     case RECLAIM_NONE: reply("NSMSG_RECLAIMED_NONE"); break;
     case RECLAIM_WARN: reply("NSMSG_RECLAIMED_WARN", victim->nick); break;
-    case RECLAIM_SVSNICK: reply("NSMSG_RECLAIMED_SVSNICK", victim->nick); break;
+    case RECLAIM_SANICK: reply("NSMSG_RECLAIMED_SANICK", victim->nick); break;
     case RECLAIM_KILL: reply("NSMSG_RECLAIMED_KILL", victim->nick); break;
     }
     return 1;
@@ -4042,7 +3848,7 @@ static NICKSERV_FUNC(cmd_unregister)
     hi = user->handle_info;
     passwd = argv[1];
     argv[1] = "****";
-    if (checkpass(passwd, hi->passwd)) {
+    if (crypto_verify_password(passwd, hi->passwd) == 1) {
         if(nickserv_unregister_handle(hi, user, cmd->parent->bot))
             return 1;
         else
@@ -4846,7 +4652,7 @@ static MODCMD_FUNC(cmd_checkpass)
         reply("MSG_HANDLE_UNKNOWN", argv[1]);
         return 0;
     }
-    if (checkpass(argv[2], hi->passwd))
+    if (crypto_verify_password(argv[2], hi->passwd) == 1)
         reply("CHECKPASS_YES");
     else
         reply("CHECKPASS_NO");
@@ -5176,8 +4982,8 @@ reclaim_action_from_string(const char *str) {
         return RECLAIM_NONE;
     else if (!irccasecmp(str, "warn"))
         return RECLAIM_WARN;
-    else if (!irccasecmp(str, "svsnick"))
-        return RECLAIM_SVSNICK;
+    else if (!irccasecmp(str, "sanick"))
+        return RECLAIM_SANICK;
     else if (!irccasecmp(str, "kill"))
         return RECLAIM_KILL;
     else
@@ -5489,11 +5295,11 @@ nickserv_reclaim(struct userNode *user, struct nick_info *ni, enum reclaim_actio
         send_message(user, nickserv, "NSMSG_RECLAIM_WARN", ni->nick, ni->owner->handle);
         send_message(user, nickserv, "NSMSG_RECLAIM_HOWTO", ni->owner->handle, nickserv->nick, self->name, ni->owner->handle);
         break;
-    case RECLAIM_SVSNICK:
+    case RECLAIM_SANICK:
         do {
             snprintf(newnick, sizeof(newnick), "Guest%d", rand()%10000);
         } while (GetUserH(newnick));
-        irc_svsnick(nickserv, user, newnick);
+        irc_sanick(nickserv, user, newnick);
         break;
     case RECLAIM_KILL:
         msg = user_find_message(user, "NSMSG_RECLAIM_KILL");
@@ -6038,8 +5844,28 @@ void handle_loc_auth_oper(struct userNode *user, UNUSED_ARG(struct handle_info *
                     client_modify_priv_by_name(user, privv[i], 1);
                 }
             }
-            irc_umode(user, nickserv_conf.auto_admin);
-            irc_sno(0x1, "%s (%s@%s) is now an IRC Administrator",
+            /*
+             * Do NOT include +N in auto_admin modes.
+             * Network Administrator (+N) is granted by the IRCd itself
+             * when it receives the ACCOUNT message AND the user's oper
+             * block has PRIV_NETADMIN. This dual-check prevents privilege
+             * escalation — services alone cannot grant +N, and an oper
+             * block alone cannot grant +N. Both must agree.
+             *
+             * Strip 'N' from auto_admin mode string as a safety measure.
+             */
+            {
+                char safe_modes[512];
+                const char *src = nickserv_conf.auto_admin;
+                char *dst = safe_modes;
+                while (*src && (dst - safe_modes) < (int)sizeof(safe_modes) - 1) {
+                    if (*src != 'N') *dst++ = *src;
+                    src++;
+                }
+                *dst = '\0';
+                irc_umode(user, safe_modes);
+            }
+            irc_sno(SNO_OLDSNO, "%s (%s@%s) is now an IRC Administrator",
                     user->nick, user->ident, user->hostname);
             send_message(user, nickserv, "NSMSG_AUTO_OPER_ADMIN");
         } else if (*nickserv_conf.auto_oper && user->handle_info->opserv_level) {
@@ -6051,12 +5877,142 @@ void handle_loc_auth_oper(struct userNode *user, UNUSED_ARG(struct handle_info *
                 }
             }
             irc_umode(user, nickserv_conf.auto_oper);
-            irc_sno(0x1, "%s (%s@%s) is now an IRC Operator",
+            irc_sno(SNO_OLDSNO, "%s (%s@%s) is now an IRC Operator",
                     user->nick, user->ident, user->hostname);
             send_message(user, nickserv, "NSMSG_AUTO_OPER");
         }
     }
 }
+
+/* ═══ X3 Command Wrappers ═══════════════════════════════════════
+ * These provide standard IRC services command names as thin wrappers
+ * around X3's native command implementations.
+ * ═══════════════════════════════════════════════════════════════ */
+
+/* IDENTIFY — wrapper for AUTH */
+static NICKSERV_FUNC(cmd_identify) { return cmd_auth(user, channel, argc, argv, cmd); }
+
+/* DROP — wrapper for UNREGISTER */
+static NICKSERV_FUNC(cmd_drop) { return cmd_unregister(user, channel, argc, argv, cmd); }
+
+/* LOGOUT — clear auth session */
+static NICKSERV_FUNC(cmd_logout)
+{
+    if (!user->handle_info) {
+        reply("NSMSG_NOT_AUTHED");
+        return 0;
+    }
+    set_user_handle_info(user, NULL, 0);
+    reply("NSMSG_HANDLEINFO_ON", "nobody");
+    return 1;
+}
+
+/* GROUP — wrapper for REGNICK */
+static NICKSERV_FUNC(cmd_group) { return cmd_regnick(user, channel, argc, argv, cmd); }
+
+/* GLIST — wrapper for NICKINFO (show grouped nicks) */
+static NICKSERV_FUNC(cmd_glist)
+{
+    struct handle_info *hi = user->handle_info;
+    struct nick_info *ni;
+    if (!hi) { reply("NSMSG_NOT_AUTHED"); return 0; }
+    reply("NSMSG_HANDLEINFO_NICKS", hi->handle);
+    for (ni = hi->nicks; ni; ni = ni->next)
+        send_message(user, nickserv, "  %s", ni->nick);
+    return 1;
+}
+
+/* ALIST — show channels the user has access to */
+static NICKSERV_FUNC(cmd_alist)
+{
+    struct handle_info *hi = user->handle_info;
+    struct userData *ch;
+    if (!hi) { reply("NSMSG_NOT_AUTHED"); return 0; }
+    send_message(user, nickserv, "Channels you have access to:");
+    for (ch = hi->channels; ch; ch = ch->u_next)
+        if (ch->channel && ch->channel->channel)
+            send_message(user, nickserv, "  %-20s (level %d)", ch->channel->channel->name, ch->access);
+    return 1;
+}
+
+/* REGAIN — wrapper for RECLAIM */
+static NICKSERV_FUNC(cmd_regain) { return cmd_reclaim(user, channel, argc, argv, cmd); }
+
+/* INFO — wrapper for ACCOUNTINFO */
+static NICKSERV_FUNC(cmd_info) { return cmd_handleinfo(user, channel, argc, argv, cmd); }
+
+/* LIST — wrapper for SEARCH (oper-only) */
+static NICKSERV_FUNC(cmd_list) { return cmd_search(user, channel, argc, argv, cmd); }
+
+/* AJOIN — auto-join management (stub — X3 handles this via ChanServ) */
+static NICKSERV_FUNC(cmd_ajoin)
+{
+    reply("NSMSG_SETTING_LIST");
+    send_message(user, nickserv, "Auto-join is managed through ChanServ channel flags.");
+    return 1;
+}
+
+/* CERT — wrapper for ADDCERTFP/DELCERTFP listing */
+static NICKSERV_FUNC(cmd_cert)
+{
+    struct handle_info *hi = user->handle_info;
+    unsigned int i;
+    if (!hi) { reply("NSMSG_NOT_AUTHED"); return 0; }
+    if (argc > 1 && !irccasecmp(argv[1], "ADD"))
+        return cmd_addsslfp(user, channel, argc - 1, argv + 1, cmd);
+    if (argc > 1 && !irccasecmp(argv[1], "DEL"))
+        return cmd_delsslfp(user, channel, argc - 1, argv + 1, cmd);
+    /* List certificates */
+    send_message(user, nickserv, "TLS certificate fingerprints for %s:", hi->handle);
+    for (i = 0; i < hi->sslfps->used; i++)
+        send_message(user, nickserv, "  %d: %s", i + 1, hi->sslfps->list[i]);
+    send_message(user, nickserv, "End of certificate list (%d total).", hi->sslfps->used);
+    return 1;
+}
+
+/* SUSPEND — oper suspend account (wrapper for oset suspend) */
+static NICKSERV_FUNC(cmd_suspend)
+{
+    if (!IsOper(user)) { reply("MSG_USER_OUTRANKED", "an oper"); return 0; }
+    return cmd_oset(user, channel, argc, argv, cmd);
+}
+
+/* UNSUSPEND — oper unsuspend (same as oset) */
+static NICKSERV_FUNC(cmd_unsuspend)
+{
+    if (!IsOper(user)) { reply("MSG_USER_OUTRANKED", "an oper"); return 0; }
+    return cmd_oset(user, channel, argc, argv, cmd);
+}
+
+/* ACCESS — show current access masks */
+static NICKSERV_FUNC(cmd_access)
+{
+    struct handle_info *hi = user->handle_info;
+    unsigned int i;
+    if (!hi) { reply("NSMSG_NOT_AUTHED"); return 0; }
+    send_message(user, nickserv, "Access masks for %s:", hi->handle);
+    for (i = 0; i < hi->masks->used; i++)
+        send_message(user, nickserv, "  %s", hi->masks->list[i]);
+    return 1;
+}
+
+/* CONFIRM — wrapper for COOKIE */
+static NICKSERV_FUNC(cmd_confirm) { return cmd_cookie(user, channel, argc, argv, cmd); }
+
+/* UPDATE — force refresh of user modes/host */
+static NICKSERV_FUNC(cmd_update)
+{
+    struct handle_info *hi = user->handle_info;
+    if (!hi) { reply("NSMSG_NOT_AUTHED"); return 0; }
+    if (hi->fakehost) {
+        struct userNode *u;
+        for (u = hi->users; u; u = u->next_authed)
+            assign_fakehost(u, hi->fakehost, 0);
+    }
+    reply("NSMSG_HANDLEINFO_ON", hi->handle);
+    return 1;
+}
+
 
 void
 init_nickserv(const char *nick)
@@ -6107,6 +6063,8 @@ init_nickserv(const char *nick)
     nickserv_define_func("OADDCERTFP", cmd_oaddsslfp, 0, 1, 0);
     nickserv_define_func("DELCERTFP", cmd_delsslfp, -1, 1, 0);
     nickserv_define_func("ODELCERTFP", cmd_odelsslfp, 0, 1, 0);
+    nickserv_define_func("ADDSSLFP", cmd_addsslfp, -1, 1, 0);
+    nickserv_define_func("DELSSLFP", cmd_delsslfp, -1, 1, 0);
     nickserv_define_func("PASS", cmd_pass, -1, 1, 0);
     nickserv_define_func("SET", cmd_set, -1, 1, 0);
     nickserv_define_func("OSET", cmd_oset, 0, 1, 0);
@@ -6143,8 +6101,25 @@ init_nickserv(const char *nick)
     nickserv_define_func("SEARCH", cmd_search, 100, 1, 0);
     nickserv_define_func("SEARCH UNREGISTER", NULL, 800, 1, 0);
     nickserv_define_func("MERGEDB", cmd_mergedb, 999, 1, 0);
-    nickserv_define_func("CHECKPASS", cmd_checkpass, 601, 1, 0);
-    nickserv_define_func("CHECKEMAIL", cmd_checkemail, 0, 1, 0);
+
+    /* Modern command aliases and new commands */
+    nickserv_define_func("IDENTIFY", cmd_identify, -1, 0, 0);
+    nickserv_define_func("ID", cmd_identify, -1, 0, 0);
+    nickserv_define_func("DROP", cmd_drop, -1, 1, 0);
+    nickserv_define_func("LOGOUT", cmd_logout, -1, 1, 0);
+    nickserv_define_func("GROUP", cmd_group, -1, 1, 0);
+    nickserv_define_func("GLIST", cmd_glist, -1, 1, 0);
+    nickserv_define_func("ALIST", cmd_alist, -1, 1, 0);
+    nickserv_define_func("REGAIN", cmd_regain, -1, 1, 1);
+    nickserv_define_func("INFO", cmd_info, -1, 0, 0);
+    nickserv_define_func("LIST", cmd_list, 0, 1, 0);
+    nickserv_define_func("AJOIN", cmd_ajoin, -1, 1, 0);
+    nickserv_define_func("CERT", cmd_cert, -1, 1, 0);
+    nickserv_define_func("SUSPEND", cmd_suspend, 0, 1, 0);
+    nickserv_define_func("UNSUSPEND", cmd_unsuspend, 0, 1, 0);
+    nickserv_define_func("ACCESS", cmd_access, -1, 1, 0);
+    nickserv_define_func("CONFIRM", cmd_confirm, -1, 0, 0);
+    nickserv_define_func("UPDATE", cmd_update, -1, 1, 0);
     /* other options */
     dict_insert(nickserv_opt_dict, "INFO", opt_info);
     dict_insert(nickserv_opt_dict, "WIDTH", opt_width);
@@ -6158,11 +6133,12 @@ init_nickserv(const char *nick)
     dict_insert(nickserv_opt_dict, "FLAGS", opt_flags);
     dict_insert(nickserv_opt_dict, "ACCESS", opt_level);
     dict_insert(nickserv_opt_dict, "LEVEL", opt_level);
-    dict_insert(nickserv_opt_dict, "EPITHET", opt_epithet);
+    /* EPITHET moved to HostServ */
     dict_insert(nickserv_opt_dict, "NOTE", opt_note);
     if (nickserv_conf.titlehost_suffix) {
-        dict_insert(nickserv_opt_dict, "TITLE", opt_title);
-        dict_insert(nickserv_opt_dict, "FAKEHOST", opt_fakehost);
+        /* TITLE moved to HostServ */
+        /* FAKEHOST moved to HostServ — use /MSG HostServ SET instead */
+    /* dict_insert(nickserv_opt_dict, "FAKEHOST", opt_fakehost); */
     }
     dict_insert(nickserv_opt_dict, "ANNOUNCEMENTS", opt_announcements);
     dict_insert(nickserv_opt_dict, "MAXLOGINS", opt_maxlogins);

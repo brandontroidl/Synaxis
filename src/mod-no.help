@@ -1,0 +1,4 @@
+"<index>" ("$bNull Module$b",
+           " ",
+           "This is a placeholder module that performs no action.",
+           "It exists to reserve a module slot in the build system.");

@@ -1,6 +1,1 @@
-
-import plugin
-reload(plugin)
-
-Class = plugin.Class
-
+from .plugin import Class

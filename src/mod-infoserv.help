@@ -1,0 +1,20 @@
+"<index>" ("$bInfoServ — Network Announcements$b",
+           " ",
+           "InfoServ stores announcements that are displayed to users on connect.",
+           "Users see only announcements posted since their last login.",
+           " ",
+           "$bCommands:$b",
+           "  LIST      View all announcements",
+           "  POST      Post an announcement (staff)",
+           "  OPERPOST  Post an oper-only announcement (staff)",
+           "  DEL       Delete an announcement (staff)",
+           " ",
+           "Type $b/msg $S HELP <command>$b for details.");
+"POST" ("$bPOST$b <message>",
+        "Posts a new network announcement visible to all users on connect. Staff only.");
+"OPERPOST" ("$bOPERPOST$b <message>",
+            "Posts an announcement visible only to IRC operators on connect. Staff only.");
+"DEL" ("$bDEL$b <id>",
+       "Deletes an announcement by ID. Use LIST to see announcement IDs. Staff only.");
+"LIST" ("$bLIST$b",
+        "Lists all current network announcements with their IDs, authors, and timestamps.");

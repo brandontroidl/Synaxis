@@ -1,0 +1,7 @@
+"<index>" ("$bQServer — Query Server$b",
+           " ",
+           "QServer provides a TCP query interface for external tools",
+           "to interact with Synaxis services programmatically.",
+           " ",
+           "Configure in x3.conf under modules/qserver.",
+           "Supports authenticated queries for user/channel lookups.");

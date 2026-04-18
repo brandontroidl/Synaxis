@@ -1,7 +1,7 @@
 /* proto.h - IRC protocol output
  * Copyright 2000-2004 srvx Development Team
  *
- * This file is part of x3.
+ * This file is part of Synaxis (formerly x3).
  *
  * x3 is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -67,6 +67,12 @@ struct uplinkNode
     int			tries;
     int			max_tries;
     long		flags;
+
+    int			ssl;           /* use TLS for this uplink */
+    char		*ssl_certfile; /* client certificate */
+    char		*ssl_keyfile;  /* client key */
+    char		*ssl_cafile;   /* CA bundle for verification */
+    char		*ssl_fingerprint; /* expected server cert fingerprint */
 
     struct uplinkNode	*prev;
     struct uplinkNode	*next;
@@ -142,9 +148,9 @@ void irc_kick(struct userNode *who, struct userNode *target, struct chanNode *fr
 void irc_part(struct userNode *who, struct chanNode *what, const char *reason);
 void irc_topic(struct userNode *service, struct userNode *who, struct chanNode *what, const char *topic);
 void irc_fetchtopic(struct userNode *from, const char *to);
-void irc_svsjoin(struct userNode *from, struct userNode *who, struct chanNode *to);
-void irc_svspart(struct userNode *from, struct userNode *who, struct chanNode *to);
-void irc_svsquit(struct userNode *from, struct userNode *who, char const *reason);
+void irc_sajoin(struct userNode *from, struct userNode *who, struct chanNode *to);
+void irc_sapart(struct userNode *from, struct userNode *who, struct chanNode *to);
+void irc_saquit(struct userNode *from, struct userNode *who, char const *reason);
 
 /* network maintenance */
 void irc_silence(struct userNode *who, const char *mask, int add);
@@ -157,7 +163,7 @@ void irc_error(const char *to, const char *message);
 void irc_kill(struct userNode *from, struct userNode *target, const char *message);
 void irc_raw(const char *what);
 void irc_stats(struct userNode *from, struct server *target, char type);
-void irc_svsnick(struct userNode *from, struct userNode *target, const char *newnick);
+void irc_sanick(struct userNode *from, struct userNode *target, const char *newnick);
 void irc_swhois(struct userNode *from, struct userNode *target, const char *message);
 void irc_tempshun(struct userNode *from, struct userNode *target, int remove, const char *reason);
 void irc_privs(struct userNode *target, char *flag, int add);
@@ -221,6 +227,7 @@ struct mod_chanmode {
     char new_key[KEYLEN + 1];
     char new_upass[KEYLEN + 1];
     char new_apass[KEYLEN + 1];
+    char new_redirect[201]; /* +L redirect target (Cathexis, CHANNELLEN+1) */
     struct {
         unsigned int mode;
         union {

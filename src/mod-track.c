@@ -1,7 +1,7 @@
 /* mod-track.c - User surveillance module
  * Copyright 2002-2004 srvx Development Team
  *
- * This file is part of x3.
+ * This file is part of Synaxis (formerly x3).
  *
  * x3 is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -14,7 +14,7 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with srvx; if not, write to the Free Software Foundation,
+ * along with Synaxis; if not, write to the Free Software Foundation,
  * Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA.
  */
 
@@ -38,6 +38,7 @@
 #include "helpfile.h"
 #include "nickserv.h"
 #include "modcmd.h"
+#include "sno_masks.h"
 #include "proto.h"
 #include "dict.h"
 #include "hash.h"
@@ -701,6 +702,8 @@ track_finalize(void) {
         return 0;
     track_cfg.bot = GetUserH(str);
     if (!track_cfg.bot)
+        return 0;
+    if (!track_cfg.channel)
         return 0;
     mod_chanmode_init(&change);
     change.argc = 1;
