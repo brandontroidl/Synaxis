@@ -611,8 +611,8 @@ MAKEFLAGS=
 # Identity of this package.
 PACKAGE_NAME='Synaxis'
 PACKAGE_TARNAME='synaxis'
-PACKAGE_VERSION='2.3.3'
-PACKAGE_STRING='Synaxis 2.3.3'
+PACKAGE_VERSION='2.3.4'
+PACKAGE_STRING='Synaxis 2.3.4'
 PACKAGE_BUGREPORT='admin@dexterousnetworkllc.org'
 PACKAGE_URL=''
 

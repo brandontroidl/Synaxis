@@ -1,5 +1,38 @@
 # Synaxis Changelog
 
+## 2.3.4 (2026-04-19) — Migrate BotServ toys to Noesis Internets
+
+Removes the eight `+toy` flagged commands from BotServ. They have been absorbed by Noesis Internets in Noesis 1.0.1 so that networks running both daemons don't get double-replies on `.d`, `.roulette`, `.calc`, etc. All removals verified by a full `./configure && make` that produced a working `x3` binary.
+
+### Removed from `src/mod-botserv.c`
+- `cmd_d` — dice roller (now `.d` / `.dice` in Noesis Internets)
+- `cmd_roulette` — russian roulette with chamber state (now `.roulette` in Noesis Internets, with the same per-channel loaded-chamber mechanic)
+- `cmd_calc` — expression calculator (Noesis Internets already had `.calc`)
+- `cmd_unf` — `"I don't want to be part of your sick fantasies!"` (now `.unf` in Noesis Internets)
+- `cmd_ping` — `"Pong!"` (now `.ping` in Noesis Internets; distinct from the P10 protocol `PING` handled in `proto-p10.c`)
+- `cmd_wut` — `"wut"` (now `.wut` in Noesis Internets)
+- `cmd_huggle` — CTCP ACTION huggles (now `.huggle` in Noesis Internets)
+- `cmd_reply` — nick-prefixed echo (now `.reply` in Noesis Internets)
+
+All eight `modcmd_register(botserv_module, ...)` calls for these commands have been removed. The function bodies are deleted. Net LOC reduction in `mod-botserv.c`: ~180 lines.
+
+### Removed from `src/chanserv.c`
+Twelve dead translation strings whose only consumers were the deleted BotServ toy commands:
+`CSMSG_UNF_RESPONSE`, `CSMSG_PING_RESPONSE`, `CSMSG_WUT_RESPONSE`, `CSMSG_BAD_DIE_FORMAT`, `CSMSG_BAD_DICE_COUNT`, `CSMSG_HUGGLES_HIM`, `CSMSG_HUGGLES_YOU`, `CSMSG_ROULETTE_LOADS`, `CSMSG_ROULETTE_NEW`, `CSMSG_ROULETTE_BETTER_LUCK`, `CSMSG_ROULETTE_BANG`, `CSMSG_ROULETTE_CLICK`, plus the two dice-result strings `CSMSG_DICE_ROLL` and `CSMSG_DIE_ROLL`.
+
+### Removed from `src/chanserv.h`
+The `roulette_chamber` field on `struct chanData` (was 4 bytes per registered channel, now reclaimed). No migration needed — x3 does not persist this field across restarts anyway, and stale data in saxdb snapshots will be silently ignored by the struct-by-struct TOML/dict reader.
+
+### What remains in BotServ
+All non-toy BotServ commands are unchanged: `botlist`, `assign`, `unassign`, `say`, `act`, `info`, `set`, `kick`, `badwords`, `bot add`, `bot del`, `bot change`, `bot list`, `emote`. BotServ's core purpose — letting channel founders assign bots with customizable nicks to their channels — is preserved. The removed commands were pure amusement layered on top of that.
+
+### Migration for operators
+If your users invoked these commands on the Synaxis/BotServ side, they'll now need to use them via Noesis Internets instead:
+- Old: `/msg ChanServ d 2d6` (or via a BotServ-assigned bot responding to `.d` in channel)
+- New: `.d 2d6` or `.dice 2d6` in any channel where Internets is present, or `/msg Internets dice 2d6` for PMs
+
+If you want channel-scoped opt-in (the BotServ ASSIGN model), that's a future Internets feature — planned with the REQUEST/REMOVE workflow in a later release. Right now Internets is globally present.
+
 ## 2.3.3 (2026-04-19)
 
 ### Removed — orphan duplicate modules and unused protocol backends

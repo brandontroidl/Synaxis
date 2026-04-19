@@ -535,21 +535,7 @@ static const struct message_entry msgtab[] = {
 //    { "CSMSG_USER_PROTECTED", "That user is protected." },
 
 /* Toys */
-    { "CSMSG_UNF_RESPONSE", "I don't want to be part of your sick fantasies!" },
-    { "CSMSG_PING_RESPONSE", "Pong!" },
-    { "CSMSG_WUT_RESPONSE", "wut" },
     { "CSMSG_BAD_NUMBER", "$b%s$b is an invalid number.  Please use a number greater than 1 with this command." },
-    { "CSMSG_BAD_DIE_FORMAT", "I do not understand $b%s$b.  Please use either a single number or standard 4d6+3 format." },
-    { "CSMSG_BAD_DICE_COUNT", "%lu is too many dice.  Please use at most %lu." },
-    { "CSMSG_DICE_ROLL", "The total is $b%lu$b from rolling %lud%lu+%lu." },
-    { "CSMSG_DIE_ROLL", "A $b%lu$b shows on the %lu-sided die." },
-    { "CSMSG_HUGGLES_HIM", "\001ACTION huggles %s\001" },
-    { "CSMSG_HUGGLES_YOU", "\001ACTION huggles you\001" },
-    { "CSMSG_ROULETTE_LOADS",  "\001ACTION loads the gun and sets it on the table\001" },
-    { "CSMSG_ROULETTE_NEW", "Please type %croulette to start a new round" } ,
-    { "CSMSG_ROULETTE_BETTER_LUCK", "Better luck next time, %s" },
-    { "CSMSG_ROULETTE_BANG", "Bang!!!" } ,
-    { "CSMSG_ROULETTE_CLICK", "Click" } ,
 
     { "CSMSG_SPIN_WHEEL1", "\001ACTION spins the wheel of misfortune for: %s\001" } ,
     { "CSMSG_SPIN_WHEEL2", "Round and round she goes, where she stops, nobody knows...!" } ,
