@@ -1,24 +1,10 @@
+# Build artifacts
 Makefile
-chanserv.help
 config.log
 config.status
-global.help
-mail.help
-mod-helpserv.help
-mod-memoserv.help
-mod-python.help
-mod-qserver.help
-mod-snoop.help
-mod-sockcheck.help
-mod-webtv.help
-modcmd.help
-nickserv.help
-opserv.help
-rx/.deps/
-rx/Makefile
-saxdb.help
-sendmail.help
-spamserv.help
+autom4te.cache/
+
+# Source build output
 src/.deps/
 src/Makefile
 src/*.o
@@ -28,9 +14,19 @@ src/stamp-h1
 src/version.c
 src/config.h
 src/x3
-src/*.orig
+
+# rx library build
+rx/.deps/
+rx/Makefile
+
+# Binary
 x3
+
+# Editor/IDE
 *~
-.vscode
-autom4te.cache/
-.claude/settings.local.json
+.vscode/
+*.orig
+src/*.orig
+
+# NOTE: src/*.help files are TRACKED (not ignored).
+# They are the help files installed by make install.

@@ -1,5 +1,5 @@
 /* mod-hostserv.c - HostServ module for Synaxis/X3
- * Copyright (C) 2026 Dexterous Network LLC
+ * Copyright (C) 2026 Synaxis Development
  *
  * Virtual host management service. Extracted from NickServ SET FAKEHOST
  * into a dedicated service following the Anope/Atheme HostServ model.

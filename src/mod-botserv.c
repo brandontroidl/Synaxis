@@ -1,5 +1,5 @@
 /* mod-botserv.c - BotServ module for Synaxis/X3
- * Copyright (C) 2026 Dexterous Network LLC
+ * Copyright (C) 2026 Synaxis Development
  *
  * Channel bot management service. Users can assign service bots to
  * channels for automated moderation (kick on badwords, floods, etc.).

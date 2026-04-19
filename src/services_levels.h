@@ -1,6 +1,6 @@
 /*
  * Synaxis/X3 — src/services_levels.h
- * Copyright (C) 2026 Dexterous Network LLC
+ * Copyright (C) 2026 Synaxis Development
  *
  * Named services access level constants for Synaxis/X3.
  * These map to the numeric opserv_level values stored per-account.
