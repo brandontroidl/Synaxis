@@ -1,5 +1,5 @@
 #! /bin/sh
-SYNAXIS_VERSION="2.3.1"
+SYNAXIS_VERSION="2.3.4"
 echo "Extracting src/version.c ..."
 if [ -d ../.git ] && command -v git >/dev/null 2>&1; then
     git_desc=$(git describe --tags --always 2>/dev/null)
