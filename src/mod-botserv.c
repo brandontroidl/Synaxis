@@ -408,6 +408,184 @@ static MODCMD_FUNC(cmd_bot_del)
 
 /* ═══ TOY/GAME + BOT SPEECH COMMANDS (moved from ChanServ) ═══ */
 
+static MODCMD_FUNC(cmd_unf)
+{
+    if(channel)
+    {
+        char response[MAXLEN];
+        const char *fmt = user_find_message(user, "CSMSG_UNF_RESPONSE");
+        sprintf(response, "%s: %s", user->nick, fmt);
+        irc_privmsg(cmd->parent->bot, channel->name, response);
+    }
+    else
+        reply("CSMSG_UNF_RESPONSE");
+    return 1;
+}
+
+
+static MODCMD_FUNC(cmd_ping)
+{
+    if(channel)
+    {
+        char response[MAXLEN];
+        const char *fmt = user_find_message(user, "CSMSG_PING_RESPONSE");
+        sprintf(response, "%s: %s", user->nick, fmt);
+        irc_privmsg(cmd->parent->bot, channel->name, response);
+    }
+    else
+        reply("CSMSG_PING_RESPONSE");
+    return 1;
+}
+
+
+static MODCMD_FUNC(cmd_wut)
+{
+    if(channel)
+    {
+        char response[MAXLEN];
+        const char *fmt = user_find_message(user, "CSMSG_WUT_RESPONSE");
+        sprintf(response, "%s: %s", user->nick, fmt);
+        irc_privmsg(cmd->parent->bot, channel->name, response);
+    }
+    else
+        reply("CSMSG_WUT_RESPONSE");
+    return 1;
+}
+
+
+static MODCMD_FUNC(cmd_roulette)
+{
+    if(channel) 
+    {
+        struct chanData *cData = channel->channel_info;
+
+        if (cData) 
+        {
+            if (cData->roulette_chamber) 
+            {
+                DelUser(user, botserv_bot, 1, "BANG - Don't stuff bullets into a loaded gun");
+                return 1;
+            }
+        
+            send_target_message(1, channel->name, cmd->parent->bot, "CSMSG_ROULETTE_LOADS");
+            cData->roulette_chamber = 1 + rand() % 6;
+        }
+    }
+
+    return 1;
+}
+
+
+
+
+
+
+
+
+static MODCMD_FUNC(cmd_d)
+{
+    unsigned long sides, count, modifier, ii, total;
+    char response[MAXLEN], *sep;
+    const char *fmt;
+
+    REQUIRE_PARAMS(2);
+    if((count = strtoul(argv[1], &sep, 10)) < 1)
+        goto no_dice;
+    if(sep[0] == 0)
+    {
+        if(count == 1)
+            goto no_dice;
+        sides = count;
+        count = 1;
+        modifier = 0;
+    }
+    else if(((sep[0] == 'd') || (sep[0] == 'D')) && isdigit(sep[1])
+            && (sides = strtoul(sep+1, &sep, 10)) > 1)
+    {
+        if(sep[0] == 0)
+            modifier = 0;
+        else if((sep[0] == '-') && isdigit(sep[1]))
+            modifier = strtoul(sep, NULL, 10);
+        else if((sep[0] == '+') && isdigit(sep[1]))
+            modifier = strtoul(sep+1, NULL, 10);
+        else
+            goto no_dice;
+    }
+    else
+    {
+      no_dice:
+        reply("CSMSG_BAD_DIE_FORMAT", argv[1]);
+        return 0;
+    }
+    if(count > 10)
+    {
+        reply("CSMSG_BAD_DICE_COUNT", count, 10);
+        return 0;
+    }
+    for(total = ii = 0; ii < count; ++ii)
+        total += (rand() % sides) + 1;
+    total += modifier;
+
+    if((count > 1) || modifier)
+    {
+        fmt = user_find_message(user, "CSMSG_DICE_ROLL");
+        sprintf(response, fmt, total, count, sides, modifier);
+    }
+    else
+    {
+        fmt = user_find_message(user, "CSMSG_DIE_ROLL");
+        sprintf(response, fmt, total, sides);
+    }
+    if(channel)
+        send_channel_message(channel, cmd->parent->bot, "$b%s$b: %s", user->nick, response);
+    else
+        send_message_type(4, user, cmd->parent->bot, "%s", response);
+    return 1;
+}
+
+
+static MODCMD_FUNC(cmd_huggle)
+{
+    /* CTCP must be via PRIVMSG, never notice */
+    if(channel)
+        send_target_message(1, channel->name, cmd->parent->bot, "CSMSG_HUGGLES_HIM", user->nick);
+    else
+        send_target_message(1, user->nick, cmd->parent->bot, "CSMSG_HUGGLES_YOU");
+    return 1;
+}
+
+
+static MODCMD_FUNC(cmd_calc)
+{
+    char response[MAXLEN];
+
+    REQUIRE_PARAMS(2);
+    do_math(response, unsplit_string(argv + 1, argc - 1, NULL));
+
+    if(channel)
+        send_channel_message(channel, cmd->parent->bot, "$b%s$b: %s", user->nick, response);
+    else
+        send_message_type(4, user, cmd->parent->bot, "%s", response);
+    return 1;
+}
+
+
+static MODCMD_FUNC(cmd_reply)
+{
+
+    REQUIRE_PARAMS(2);
+    unsplit_string(argv + 1, argc - 1, NULL);
+
+    if(channel)
+        send_channel_message(channel, cmd->parent->bot, "$b%s$b: %s", user->nick, unsplit_string(argv + 1, argc - 1, NULL));
+    else
+        send_message_type(4, user, cmd->parent->bot, "%s", unsplit_string(argv + 1, argc - 1, NULL));
+    return 1;
+}
+
+
+
+
 static MODCMD_FUNC(cmd_emote)
 {
     char *msg;
@@ -659,6 +837,14 @@ int botserv_init(void)
     modcmd_register(botserv_module, "bot del",   cmd_bot_del,   2, MODCMD_REQUIRE_AUTHED, "flags", "+oper", NULL);
 
     /* Toy/game commands (moved from ChanServ) */
+    modcmd_register(botserv_module, "unf",       cmd_unf,       1, 0, "flags", "+nolog,+toy,+acceptchan", NULL);
+    modcmd_register(botserv_module, "ping",      cmd_ping,      1, 0, "flags", "+nolog,+toy,+acceptchan", NULL);
+    modcmd_register(botserv_module, "wut",       cmd_wut,       1, 0, "flags", "+nolog,+toy,+acceptchan", NULL);
+    modcmd_register(botserv_module, "d",         cmd_d,         1, 0, "flags", "+nolog,+toy,+acceptchan", NULL);
+    modcmd_register(botserv_module, "huggle",    cmd_huggle,    1, 0, "flags", "+nolog,+toy,+acceptchan", NULL);
+    modcmd_register(botserv_module, "calc",      cmd_calc,      1, 0, "flags", "+nolog,+toy,+acceptchan", NULL);
+    modcmd_register(botserv_module, "reply",     cmd_reply,     1, 0, "flags", "+nolog,+toy,+acceptchan", NULL);
+    modcmd_register(botserv_module, "roulette",  cmd_roulette,  1, 0, "flags", "+nolog,+toy,+acceptchan", NULL);
     /* Bot speech commands (moved from ChanServ) */
     modcmd_register(botserv_module, "say", cmd_say, 3, MODCMD_REQUIRE_AUTHED, NULL);
     modcmd_register(botserv_module, "emote",     cmd_emote,     3, MODCMD_REQUIRE_AUTHED, NULL);

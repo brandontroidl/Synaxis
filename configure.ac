@@ -3,7 +3,7 @@ dnl Process this file with autoconf to create a configure script.
 dnl General initialization.
 AC_REVISION([$Id$])
 AC_PREREQ([2.71])
-AC_INIT([Synaxis],[2.3.4],[admin@dexterousnetworkllc.org])
+AC_INIT([Synaxis],[2.3.3],[admin@dexterousnetworkllc.org])
 CODENAME=Synaxis
 AC_CONFIG_HEADERS(src/config.h)
 AC_CONFIG_SRCDIR(src/opserv.c)
