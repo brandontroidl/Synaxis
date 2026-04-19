@@ -23,12 +23,11 @@
 #include "hash.h"
 #include "log.h"
 
-#if defined(HAVE_LIBGEOIP)&&defined(HAVE_GEOIP_H)&&defined(HAVE_GEOIPCITY_H)
-#include <GeoIP.h>
-#include <GeoIPCity.h>
+#if defined(HAVE_LIBMAXMINDDB) && defined(HAVE_MAXMINDDB_H)
+#include <maxminddb.h>
 
-GeoIP * gi = NULL;
-GeoIP * cgi = NULL;
+static MMDB_s mmdb;         /* City DB (or Country DB if only that's configured) */
+static int    mmdb_loaded = 0;
 #endif
 
 struct server *self;
@@ -417,49 +416,101 @@ set_geoip_info(struct userNode *user)
 {
     if(IsLocal(user))
         return;
-/* Need the libs and the headers if this is going to compile properly */
-#if defined(HAVE_LIBGEOIP)&&defined(HAVE_GEOIP_H)&&defined(HAVE_GEOIPCITY_H)
-    GeoIPRecord * gir;
-    const char *geoip_data_file = NULL;
-    const char *geoip_city_file = NULL;
+/* Legacy libGeoIP was sunset by MaxMind; Synaxis 2.3.2+ uses libmaxminddb
+ * (GeoIP2/GeoLite2 MMDB format) only. Config keys unchanged for ABI continuity:
+ *   services/opserv/geoip_data_file       — Country DB path (ignored if
+ *                                            geoip_city_data_file is set)
+ *   services/opserv/geoip_city_data_file  — City DB path (preferred) */
+#if defined(HAVE_LIBMAXMINDDB) && defined(HAVE_MAXMINDDB_H)
+    const char *mmdb_path = NULL;
+    const char *city_path = NULL;
+    int gai_error = 0, mmdb_error = 0;
+    MMDB_lookup_result_s result;
+    MMDB_entry_data_s entry;
 
-    geoip_data_file = conf_get_data("services/opserv/geoip_data_file", RECDB_QSTRING);
-    geoip_city_file = conf_get_data("services/opserv/geoip_city_data_file", RECDB_QSTRING);
+    city_path = conf_get_data("services/opserv/geoip_city_data_file", RECDB_QSTRING);
+    mmdb_path = conf_get_data("services/opserv/geoip_data_file", RECDB_QSTRING);
 
-    if ((!geoip_data_file && !geoip_city_file))
-        return; /* Admin doesnt want to use geoip functions */
+    /* Prefer the richer city DB if configured */
+    if (city_path && *city_path)
+        mmdb_path = city_path;
 
-    if (geoip_data_file && !gi)
-        gi  = GeoIP_open(geoip_data_file, GEOIP_MEMORY_CACHE | GEOIP_CHECK_CACHE);
+    if (!mmdb_path || !*mmdb_path)
+        return;  /* Admin doesn't want to use geoip */
 
-    if (geoip_city_file && !cgi)
-        cgi = GeoIP_open(geoip_city_file, GEOIP_MEMORY_CACHE | GEOIP_CHECK_CACHE);
-
-    if (cgi) {
-        gir = GeoIP_record_by_name(cgi, user->hostname);
-        if (gir) {
-            user->country_name = strdup(gir->country_name ? gir->country_name : "");
-            user->country_code = strdup(gir->country_code ? gir->country_code : "");
-            user->city         = strdup(gir->city ? gir->city : "");
-            user->region       = strdup(gir->region ? gir->region : "");
-            user->postal_code  = strdup(gir->postal_code ? gir->postal_code : "");
-
-            user->latitude  = gir->latitude ? gir->latitude : 0;
-            user->longitude = gir->longitude ? gir->longitude : 0;
-            user->dma_code  = gir->dma_code ? gir->dma_code : 0;
-            user->area_code = gir->area_code ? gir->area_code : 0;
-
-            GeoIPRecord_delete(gir);
-        }
-
-        return;
-    } else if (gi) {
-        const char *country = GeoIP_country_name_by_name(gi, user->hostname);
-        user->country_name = strdup(country ? country : "");
-        return;
+    /* Open MMDB lazily on first use */
+    if (!mmdb_loaded) {
+        int rc = MMDB_open(mmdb_path, MMDB_MODE_MMAP, &mmdb);
+        if (rc != MMDB_SUCCESS)
+            return;
+        mmdb_loaded = 1;
     }
 
-    return;
+    if (!user->hostname || !*user->hostname)
+        return;
+
+    result = MMDB_lookup_string(&mmdb, user->hostname, &gai_error, &mmdb_error);
+    if (gai_error != 0 || mmdb_error != MMDB_SUCCESS || !result.found_entry)
+        return;
+
+    /* Country name (English) */
+    if (MMDB_get_value(&result.entry, &entry, "country", "names", "en", NULL)
+        == MMDB_SUCCESS && entry.has_data && entry.type == MMDB_DATA_TYPE_UTF8_STRING) {
+        user->country_name = strndup(entry.utf8_string, entry.data_size);
+    } else {
+        user->country_name = strdup("");
+    }
+
+    /* ISO country code (e.g. "US") */
+    if (MMDB_get_value(&result.entry, &entry, "country", "iso_code", NULL)
+        == MMDB_SUCCESS && entry.has_data && entry.type == MMDB_DATA_TYPE_UTF8_STRING) {
+        user->country_code = strndup(entry.utf8_string, entry.data_size);
+    } else {
+        user->country_code = strdup("");
+    }
+
+    /* City name (may be missing on Country-only DB) */
+    if (MMDB_get_value(&result.entry, &entry, "city", "names", "en", NULL)
+        == MMDB_SUCCESS && entry.has_data && entry.type == MMDB_DATA_TYPE_UTF8_STRING) {
+        user->city = strndup(entry.utf8_string, entry.data_size);
+    } else {
+        user->city = strdup("");
+    }
+
+    /* First subdivision (region/state) */
+    if (MMDB_get_value(&result.entry, &entry, "subdivisions", "0", "names", "en", NULL)
+        == MMDB_SUCCESS && entry.has_data && entry.type == MMDB_DATA_TYPE_UTF8_STRING) {
+        user->region = strndup(entry.utf8_string, entry.data_size);
+    } else {
+        user->region = strdup("");
+    }
+
+    /* Postal code (may be missing) */
+    if (MMDB_get_value(&result.entry, &entry, "postal", "code", NULL)
+        == MMDB_SUCCESS && entry.has_data && entry.type == MMDB_DATA_TYPE_UTF8_STRING) {
+        user->postal_code = strndup(entry.utf8_string, entry.data_size);
+    } else {
+        user->postal_code = strdup("");
+    }
+
+    /* Latitude / Longitude */
+    user->latitude = 0.0f;
+    if (MMDB_get_value(&result.entry, &entry, "location", "latitude", NULL)
+        == MMDB_SUCCESS && entry.has_data && entry.type == MMDB_DATA_TYPE_DOUBLE) {
+        user->latitude = (float) entry.double_value;
+    }
+    user->longitude = 0.0f;
+    if (MMDB_get_value(&result.entry, &entry, "location", "longitude", NULL)
+        == MMDB_SUCCESS && entry.has_data && entry.type == MMDB_DATA_TYPE_DOUBLE) {
+        user->longitude = (float) entry.double_value;
+    }
+
+    /* DMA/area codes were US-only metadata that MaxMind stopped publishing
+     * in GeoIP2. Keep the fields zero-initialized for ABI compatibility. */
+    user->dma_code  = 0;
+    user->area_code = 0;
+#else
+    (void) user;  /* No GeoIP compiled in — fields stay NULL/0 */
 #endif
 }
 

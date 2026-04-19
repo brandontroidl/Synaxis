@@ -1,5 +1,14 @@
 # Synaxis Changelog
 
+## 2.3.2 (2026-04-19)
+
+### Build / GeoIP
+- **Legacy libGeoIP replaced with libmaxminddb (`src/hash.c`)** — MaxMind discontinued the GeoIP Legacy databases and the companion libGeoIP C library; stock distributions no longer ship a working dataset. `set_geoip_info()` has been rewritten against libmaxminddb (the GeoIP2 / GeoLite2 MMDB API): `MMDB_open` + `MMDB_lookup_string` + `MMDB_get_value`. Supports both City and Country MMDB files; falls back from city to country automatically. DMA/area code fields are zeroed in the struct because MaxMind dropped that US-only metadata in GeoIP2.
+- **Config keys unchanged** — `services/opserv/geoip_data_file` (Country DB) and `services/opserv/geoip_city_data_file` (City DB, preferred when set) continue to work. Point them at `GeoLite2-Country.mmdb` / `GeoLite2-City.mmdb` instead of the old `.dat` files.
+- **`configure.ac`** — `AC_CHECK_LIB(GeoIP, GeoIP_open)` → `AC_CHECK_LIB(maxminddb, MMDB_open)`; header check for `GeoIP.h`/`GeoIPCity.h` → `maxminddb.h`.
+- **`src/config.h.in`** — `HAVE_GEOIP_H` / `HAVE_GEOIPCITY_H` / `HAVE_LIBGEOIP` retired; replaced with `HAVE_MAXMINDDB_H` / `HAVE_LIBMAXMINDDB`.
+- **Build deps** — install `libmaxminddb-dev` (Debian/Ubuntu) or `libmaxminddb-devel` (Fedora/RHEL). The old `libgeoip-dev` is no longer a dependency and can be removed.
+
 ## 2.3.1 (2026-04-12)
 
 ### ChanServ

@@ -3,7 +3,7 @@ dnl Process this file with autoconf to create a configure script.
 dnl General initialization.
 AC_REVISION([$Id$])
 AC_PREREQ([2.71])
-AC_INIT([Synaxis],[2.3.1],[admin@dexterousnetworkllc.org])
+AC_INIT([Synaxis],[2.3.2],[admin@dexterousnetworkllc.org])
 CODENAME=Synaxis
 AC_CONFIG_HEADERS(src/config.h)
 AC_CONFIG_SRCDIR(src/opserv.c)
@@ -60,14 +60,14 @@ dnl Checks for libraries.
 AC_CHECK_LIB(socket, socket)
 AC_CHECK_LIB(nsl, gethostbyname)
 AC_CHECK_LIB(m, main)
-AC_CHECK_LIB(GeoIP, GeoIP_open)
+AC_CHECK_LIB(maxminddb, MMDB_open)
 
 dnl Checks for header files.
 AC_CHECK_HEADERS_ONCE([sys/time.h])
 AC_STRUCT_TM
 
 dnl Would rather not bail on headers, BSD has alot of the functions elsewhere. -Jedi
-AC_CHECK_HEADERS(GeoIP.h GeoIPCity.h arpa/inet.h fcntl.h math.h tgmath.h malloc.h netdb.h netinet/in.h sys/resource.h sys/timeb.h sys/times.h sys/param.h sys/socket.h sys/time.h sys/types.h sys/wait.h unistd.h getopt.h memory.h arpa/inet.h sys/mman.h sys/stat.h dirent.h sys/epoll.h sys/event.h,,)
+AC_CHECK_HEADERS(maxminddb.h arpa/inet.h fcntl.h math.h tgmath.h malloc.h netdb.h netinet/in.h sys/resource.h sys/timeb.h sys/times.h sys/param.h sys/socket.h sys/time.h sys/types.h sys/wait.h unistd.h getopt.h memory.h arpa/inet.h sys/mman.h sys/stat.h dirent.h sys/epoll.h sys/event.h,,)
 
 dnl portability stuff, hurray! -Jedi
 AC_CHECK_MEMBER([struct sockaddr.sa_len],
