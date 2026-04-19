@@ -1,5 +1,24 @@
 # Synaxis Changelog
 
+## 2.3.3 (2026-04-19)
+
+### Removed — orphan duplicate modules and unused protocol backends
+Deleted seven source files totaling 2,581 lines that were either AI-generated duplicates of already-built modules, parallel implementations with unwired integration hooks, or protocol backends for IRCds Synaxis will never link to. All removals verified by a full `./configure && make` pass that produced a working `x3` binary.
+
+- `src/chanfix.c` (454 lines) — standalone copy of `mod-chanfix.c` with identical function signatures (`cmd_cfdisable`, `cmd_cfenable`, `cmd_cfinfo`, `cmd_cfix`, `cmd_cscore`, `chanfix_do_fix`, etc.). The `mod-` version is the one referenced by `Makefile.am` and actually built.
+- `src/groupserv.c` (599 lines) — standalone duplicate of `mod-groupserv.c` (same `cmd_gcreate`, `cmd_gdrop`, `cmd_gjoin` signatures).
+- `src/infoserv.c` (298 lines) — standalone duplicate of `mod-infoserv.c`.
+- `src/mod-no.c` (7 lines) — null module stub (`no_init` / `no_finalize` that always return 1). Not referenced by the module loader.
+- `src/proto-inspircd.c` (536 lines) — InspIRCd spanning-tree protocol backend. Synaxis is P10-only; Cathexis (its uplink) is P10-only. This backend was never reachable.
+- `src/proto-ts6.c` (467 lines) — TS6 protocol backend (charybdis/ratbox family). Same reasoning as above.
+- `src/sasl_agent_enhanced.c` (220 lines) — parallel SASL implementation with a comment block stating "To integrate: add `call_sasl_input_func()` hook in `proto-p10.c cmd_sasl`" — the hook was never added. The real `call_sasl_input_func` is defined in `hash.c:128` and proto-p10.c already routes through it. `sasl_handle_input`, `sasl_destroy`, `sasl_reply` from this file had zero external callers.
+
+### Rationale
+Two distinct failure modes produced this bloat: (1) duplicate `.c` files created as "new" implementations without noticing the `mod-` variant already existed and was in the build, and (2) protocol/feature scaffolding that got written but never wired into `Makefile.am` or the runtime dispatch tables. Both kinds are cruft that misleads audits and slows searches.
+
+### Kept (not AI bloat)
+- `src/mail-smtp.c` — genuine 2007 srvx code providing an alternative SMTP-direct mail backend. The build uses `mail-sendmail.c` instead, but this file is a legitimate swap-in option, not dead code.
+
 ## 2.3.2 (2026-04-19)
 
 ### Build / GeoIP
